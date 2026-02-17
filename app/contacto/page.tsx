@@ -1,16 +1,17 @@
 "use client";
 
 import React, { useState, useContext } from "react";
-import { useOpinions } from "../../context/OpinionsContext";
-import { LanguageContext } from "../layout";
+import { LanguageContext } from "../RootProviders";
 import { Merriweather } from "next/font/google";
 
-// --- Fuente tipo Home ---
-const merriweather = Merriweather({ subsets: ["latin"], weight: "400", variable: "--font-merriweather" });
+const merriweather = Merriweather({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-merriweather",
+});
 
 export default function ContactoPage() {
   const { language } = useContext(LanguageContext);
-  const { addOpinion } = useOpinions();
   const [formData, setFormData] = useState({ nombre: "", email: "", mensaje: "" });
   const [loading, setLoading] = useState(false);
 
@@ -22,41 +23,45 @@ export default function ContactoPage() {
     e.preventDefault();
     setLoading(true);
 
-    const nuevaOpinion = { text: formData.mensaje, author: formData.nombre, fecha: new Date().toISOString() };
+    const mensaje = { text: formData.mensaje, author: formData.nombre, email: formData.email, fecha: new Date().toISOString() };
 
-    const res = await fetch("/api/opinion", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(nuevaOpinion),
-    });
+    try {
+      const res = await fetch("/api/contacto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mensaje),
+      });
 
-    setLoading(false);
+      setLoading(false);
 
-    if (res.ok) {
-      addOpinion(nuevaOpinion);
-      alert(language === "ES" ? "¡Gracias por tu opinión!" : "Thank you for your feedback!");
-      setFormData({ nombre: "", email: "", mensaje: "" });
-    } else {
-      alert(language === "ES" ? "Hubo un error. Intenta de nuevo." : "There was an error. Please try again.");
+      if (res.ok) {
+        alert(language === "ES" ? "¡Gracias por tu mensaje!" : "Thank you for your message!");
+        setFormData({ nombre: "", email: "", mensaje: "" });
+      } else {
+        alert(language === "ES" ? "Hubo un error. Intenta de nuevo." : "There was an error. Please try again.");
+      }
+    } catch {
+      setLoading(false);
+      alert(language === "ES" ? "Hubo un error de conexión." : "Connection error.");
     }
   };
 
   return (
     <section className={`${merriweather.variable} font-sans max-w-5xl mx-auto px-6 py-16 space-y-12 bg-white text-[#0a1b2e]`}>
-      <h1 className="text-4xl font-normal">{language === "ES" ? "Contacto" : "Contact"}</h1>
+      <h1 className="text-4xl font-normal text-center">{language === "ES" ? "Contacto" : "Contact"}</h1>
 
       <div className="bg-gray-100/40 p-8 rounded-2xl shadow-xl shadow-[#0a1b2e]/20">
-        <p className="text-lg mb-4">
+        <p className="text-lg mb-4 text-center">
           {language === "ES" ? "Cualquier duda escríbenos a:" : "If you have questions, write to us at:"}{" "}
           <a href="mailto:pperiodicodigitalml@gmail.com" className="text-[#0a1b2e] underline">
             pperiodicodigitalml@gmail.com
           </a>
         </p>
 
-        <p className="text-lg mb-6">
+        <p className="text-lg mb-6 text-center">
           {language === "ES"
-            ? "Tu opinión nos ayuda mucho a mejorar. Déjanos un mensaje."
-            : "Your feedback helps us improve. Leave us a message."}
+            ? "Tu mensaje nos ayuda a mejorar. Déjanos tus comentarios."
+            : "Your message helps us improve. Leave your feedback."}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -67,6 +72,7 @@ export default function ContactoPage() {
             value={formData.nombre}
             onChange={handleChange}
             className="w-full p-3 text-black rounded-lg border border-gray-300 bg-white shadow-sm shadow-[#0a1b2e]/10 focus:ring-2 focus:ring-[#0a1b2e]"
+            required
           />
 
           <input
@@ -76,6 +82,7 @@ export default function ContactoPage() {
             value={formData.email}
             onChange={handleChange}
             className="w-full p-3 text-black rounded-lg border border-gray-300 bg-white shadow-sm shadow-[#0a1b2e]/10 focus:ring-2 focus:ring-[#0a1b2e]"
+            required
           />
 
           <textarea
@@ -84,14 +91,17 @@ export default function ContactoPage() {
             value={formData.mensaje}
             onChange={handleChange}
             className="w-full p-3 text-black rounded-lg border border-gray-300 bg-white shadow-sm shadow-[#0a1b2e]/10 focus:ring-2 focus:ring-[#0a1b2e] h-40 resize-none"
+            required
           />
 
           <button
             type="submit"
             disabled={loading}
-            className="bg-[#0a1b2e] text-white px-6 py-3 rounded-xl hover:opacity-90 transition"
+            className="bg-[#0a1b2e] text-white px-6 py-3 rounded-xl hover:opacity-90 transition w-full"
           >
-            {loading ? (language === "ES" ? "Enviando..." : "Sending...") : language === "ES" ? "Enviar" : "Send"}
+            {loading
+              ? language === "ES" ? "Enviando..." : "Sending..."
+              : language === "ES" ? "Enviar" : "Send"}
           </button>
         </form>
       </div>

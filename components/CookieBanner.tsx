@@ -86,24 +86,27 @@ export default function CookieBanner({ language }: Props) {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
             transition={{ type: "spring", stiffness: 120, damping: 20 }}
-            className="fixed bottom-0 left-0 w-full bg-blue-950 text-white p-4 flex flex-col md:flex-row justify-between items-center z-50 shadow-lg"
+            className="fixed bottom-0 left-0 w-full bg-[#0a1b2e] text-white p-4 flex flex-col md:flex-row justify-between items-center z-50 shadow-xl"
           >
-            <p className="text-sm md:text-base">
+            <p className="text-sm md:text-base text-gray-100">
               {t.banner}{" "}
-              <span className="underline cursor-pointer ml-1" onClick={() => setShowModal(true)}>
+              <span
+                className="underline cursor-pointer ml-1 hover:text-blue-400"
+                onClick={() => setShowModal(true)}
+              >
                 {t.politica}
               </span>
             </p>
 
             <div className="mt-2 md:mt-0 flex space-x-2">
               <button
-                className="bg-blue-900 text-white px-3 py-1 rounded font-semibold hover:bg-blue-800"
+                className="bg-blue-900 text-white px-3 py-1 rounded-lg font-semibold hover:bg-blue-700 transition"
                 onClick={handleAcceptAll}
               >
                 {t.aceptarTodas}
               </button>
               <button
-                className="bg-blue-900 text-white px-3 py-1 rounded font-semibold hover:bg-blue-800"
+                className="bg-gray-700 text-white px-3 py-1 rounded-lg font-semibold hover:bg-gray-600 transition"
                 onClick={handleRejectAll}
               >
                 {t.rechazar}
@@ -127,21 +130,21 @@ export default function CookieBanner({ language }: Props) {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ type: "spring", stiffness: 120, damping: 20 }}
-              className="bg-white rounded-lg max-w-lg w-full p-6 relative shadow-lg"
+              className="bg-white rounded-2xl max-w-lg w-full p-6 relative shadow-2xl"
             >
-              <h2 className="text-xl font-bold mb-4 text-gray-900">{t.modalTitle}</h2>
+              <h2 className="text-2xl font-bold mb-4 text-[#0a1b2e]">{t.modalTitle}</h2>
               <p className="text-gray-700 mb-4 text-sm">{t.modalDesc}</p>
 
               <hr className="border-gray-200 mb-4" />
 
               <div className="space-y-3 mb-6 text-gray-700">
                 <label className="flex items-center justify-between">
-                  <span>{t.necesarias}</span>
+                  <span className="font-medium">{t.necesarias}</span>
                   <input type="checkbox" checked={preferences.necesarias} disabled />
                 </label>
 
                 <label className="flex items-center justify-between">
-                  <span>{t.rendimiento}</span>
+                  <span className="font-medium">{t.rendimiento}</span>
                   <input
                     type="checkbox"
                     checked={preferences.rendimiento}
@@ -152,7 +155,7 @@ export default function CookieBanner({ language }: Props) {
                 </label>
 
                 <label className="flex items-center justify-between">
-                  <span>{t.publicidad}</span>
+                  <span className="font-medium">{t.publicidad}</span>
                   <input
                     type="checkbox"
                     checked={preferences.publicidad}
@@ -165,19 +168,19 @@ export default function CookieBanner({ language }: Props) {
 
               <div className="flex justify-end space-x-2">
                 <button
-                  className="bg-gray-200 text-black px-3 py-1 rounded hover:bg-gray-300"
+                  className="bg-gray-200 text-[#0a1b2e] px-4 py-1 rounded-lg hover:bg-gray-300 transition font-semibold"
                   onClick={() => setShowModal(false)}
                 >
                   {t.cerrar}
                 </button>
                 <button
-                  className="bg-blue-950 text-white px-3 py-1 rounded hover:bg-blue-800"
+                  className="bg-[#0a1b2e] text-white px-4 py-1 rounded-lg hover:bg-[#08152a] transition font-semibold"
                   onClick={handleSavePreferences}
                 >
                   {t.guardar}
                 </button>
                 <button
-                  className="bg-blue-950 text-white px-3 py-1 rounded hover:bg-blue-800"
+                  className="bg-blue-900 text-white px-4 py-1 rounded-lg hover:bg-blue-700 transition font-semibold"
                   onClick={handleAcceptAll}
                 >
                   {t.aceptarTodas}

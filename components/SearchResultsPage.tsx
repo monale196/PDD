@@ -5,7 +5,7 @@ import { NewsContext, Contenido } from "../context/NewsContext";
 import { SearchContext } from "../context/SearchContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { LanguageContext } from "../app/layout";
+import { LanguageContext } from "../app/RootProviders";
 
 type SortOption = "title-asc" | "title-desc";
 
@@ -57,6 +57,7 @@ export default function SearchResultsPage() {
     españa: ["spain", "espana"],
   };
 
+  // Sincronizar keyword desde URL
   useEffect(() => {
     if (keywordFromUrl && keywordFromUrl !== keyword) {
       setKeyword(keywordFromUrl);
@@ -67,17 +68,15 @@ export default function SearchResultsPage() {
   const cleanText = (text = "") => {
     if (!text) return "";
     let cleaned = text.replace(/\*\*/g, "").trim();
-
     if (language === "EN") {
       cleaned = cleaned.replace(/Title:/gi, "").replace(/Subtitle:/gi, "").replace(/Date:/gi, "");
     } else {
       cleaned = cleaned.replace(/Título:/gi, "").replace(/Subtítulo:/gi, "").replace(/Fecha:/gi, "");
     }
-
     return cleaned.trim();
   };
 
-  // Formateo de fecha, evita "Invalid Date"
+  // Formateo de fecha
   const formatDate = (iso: string) => {
     const date = new Date(iso);
     if (isNaN(date.getTime())) return "";
@@ -88,12 +87,12 @@ export default function SearchResultsPage() {
   };
 
   /* =========================
-     BÚSQUEDA GLOBAL BILINGÜE CON ORDENAMIENTO POR TÍTULO
+     FILTRADO Y ORDENAMIENTO
   ========================= */
   const results = useMemo(() => {
     const all = [...articles];
 
-    // Filtrar por keyword si existe
+    // Filtrar por keyword
     let filtered = all;
     if (keyword.trim()) {
       const q = keyword.toLowerCase();
@@ -115,6 +114,7 @@ export default function SearchResultsPage() {
     return filtered;
   }, [keyword, articles, sortBy, language]);
 
+  // Navegación al artículo completo en SectionPage
   const handleReadMore = (article: Contenido) => {
     setDateFilter(article.date);
     router.push(`/secciones/${article.section}`);
@@ -126,16 +126,16 @@ export default function SearchResultsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 text-[#0a1b2e] space-y-6">
+    <div className="max-w-4xl mx-auto px-4 py-8 text-[#0a1b2e] space-y-8">
 
       {/* HEADER */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">
+        <h1 className="text-2xl font-semibold">
           {tr.resultsFor} “{keyword || keywordFromUrl}”
         </h1>
         <button
           onClick={handleGoBack}
-          className="text-blue-800 hover:underline"
+          className="text-[#ff6f61] hover:underline font-medium"
         >
           {tr.goBack}
         </button>
@@ -143,7 +143,7 @@ export default function SearchResultsPage() {
 
       {/* ORDENAR */}
       <div className="flex items-center space-x-2">
-        <span>{tr.sortBy}</span>
+        <span className="font-medium">{tr.sortBy}</span>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as SortOption)}
@@ -156,41 +156,57 @@ export default function SearchResultsPage() {
 
       {/* RESULTADOS */}
       {results.length === 0 ? (
-        <p className="text-gray-500">{tr.noResults}</p>
+        <p className="text-[#6c7a89] text-lg mt-4">{tr.noResults}</p>
       ) : (
         <AnimatePresence>
-          <div className="space-y-6">
+          <div className="space-y-6 mt-4">
             {results.map(article => (
               <motion.div
                 key={article.url}
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 15 }}
-                className="border-b pb-4"
+                className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow duration-200"
               >
+                {/* IMAGEN PRINCIPAL */}
+                {article.imageUrl && (
+                  <img
+                    src={article.imageUrl}
+                    alt={cleanText(article.title)}
+                    className="w-full h-48 object-cover rounded-lg mb-3"
+                  />
+                )}
+
                 {/* TÍTULO */}
-                <h2 className="text-lg font-medium text-gray-800">
+                <h2 className="text-xl font-semibold text-[#0a1b2e]">
                   {cleanText(article.title)}
                 </h2>
 
                 {/* FECHA */}
                 {formatDate(article.date) && (
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-[#6c7a89] mt-1">
                     {formatDate(article.date)}
                   </p>
                 )}
 
                 {/* SUBTÍTULO */}
                 {article.subtitle && (
-                  <p className="text-gray-600 mt-2">
-                    {cleanText(article.subtitle)}
-                  </p>
+                  <p className="text-[#6c7a89] mt-2">{cleanText(article.subtitle)}</p>
+                )}
+
+                {/* MINI PREVIEW / BULLETS */}
+                {article.body && (
+                  <ul className="list-disc pl-5 mt-2 text-[#6c7a89]">
+                    {article.body.split("\n").slice(0,3).map((line,i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ul>
                 )}
 
                 {/* LEER MÁS */}
                 <button
                   onClick={() => handleReadMore(article)}
-                  className="mt-3 text-blue-800 font-medium hover:underline"
+                  className="mt-3 text-[#ff6f61] font-medium hover:underline"
                 >
                   {tr.readMore}
                 </button>

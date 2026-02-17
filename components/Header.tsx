@@ -3,7 +3,7 @@
 import { useState, useContext, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { SearchContext, LanguageContext } from "../app/layout";
+import { SearchContext, LanguageContext } from "../app/RootProviders";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -11,25 +11,26 @@ import { useRouter, usePathname } from "next/navigation";
    SLUGS CORRECTOS PARA URL
 ========================= */
 const SLUGS: Record<string, string> = {
-  "Brexit": "brexit",
-  "Empresas": "empresas",
-  "España": "espana",
-  "Estados Unidos": "estados-unidos",
-  "Europa": "europa",
-  "Mercados": "mercados",
-  "Última hora": "ultima-hora",
-  "Historias Vivas": "historias-vivas",
+  "Economia": "economia",
+  "Empleo": "empleo",
+  "Educacion": "educacion",
+  "MedioAmbiente": "medio_ambiente",
+  "Tecnologia": "tecnologia",
+  "Derechos": "derechos_democracia",
+  "Futuro": "futuro",
+  "HistoriasVivas": "historias-vivas",
 };
-
 const NEWS_SECTIONS = [
-  "Brexit",
-  "Empresas",
-  "España",
-  "Estados Unidos",
-  "Europa",
-  "Mercados",
-  "Última hora",
+  "Economia",
+  "Empleo",
+  "Educacion",
+  "MedioAmbiente",
+  "Tecnologia",
+  "Derechos",
+  "Futuro",
 ];
+
+
 const OTHER_SECTIONS = ["Historias Vivas"];
 
 export default function Header() {
@@ -124,14 +125,15 @@ export default function Header() {
 
   const translateSection = (sec: string) => {
     const map: Record<string, string> = {
-      Brexit: "Brexit",
-      Empresas: "Companies",
-      España: "Spain",
-      "Estados Unidos": "United States",
-      Europa: "Europe",
-      Mercados: "Markets",
-      "Última hora": "Latest News",
-      "Historias Vivas": "Living Stories",
+      Economia: "Economy",
+      Empleo: "Employment",
+      Educacion: "Education",
+      MedioAmbiente: "Environment",
+      Tecnologia: "Tecnology",
+      Derechos: "Rights",
+      Futuro: "Future",
+      "Historias-Vivas": "Living Stories"
+      
     };
     return map[sec] || sec;
   };

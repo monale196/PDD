@@ -1,40 +1,40 @@
 "use client";
 
 import { useContext } from "react";
-import { LanguageContext } from "@/app/layout";
+import { LanguageContext } from "@/app/RootProviders";
 
 export default function CopyrightPage() {
   const { language } = useContext(LanguageContext);
   const es = language === "ES";
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-12">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-md p-8 max-w-6xl w-full">
-        
-        {/* Título centrado arriba */}
-        <h1 className="text-3xl text-center text-[#0a1b2e] font-normal mb-8">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-12">
+      <div className="bg-[#0a1b2e]/5 border border-[#0a1b2e]/20 rounded-2xl shadow-lg p-8 max-w-6xl w-full">
+
+        {/* Título centrado */}
+        <h1 className="text-3xl md:text-4xl text-center text-[#0a1b2e] font-semibold mb-10">
           {es ? "Derechos de Autor" : "Copyright / Licensing"}
         </h1>
 
-        {/* Contenido con imagen a la izquierda y texto a la derecha, centrados verticalmente */}
-        <div className="flex flex-col md:flex-row items-center md:items-center gap-8">
+        {/* Contenido con imagen a la izquierda y texto a la derecha */}
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
           
-          {/* Imagen del Confidencial más pequeña */}
-          <div className="flex-shrink-0 md:self-center">
+          {/* Imagen */}
+          <div className="flex-shrink-0 md:self-start">
             <img
               src="/img/elconfidencial.jpg"
               alt="El Confidencial"
-              className="h-24 w-auto object-contain"
+              className="h-24 w-auto object-contain rounded-md shadow-sm"
             />
           </div>
 
-          {/* Texto a la derecha con más ancho */}
-          <div className="flex-1 text-gray-700 leading-relaxed text-lg">
+          {/* Texto principal */}
+          <div className="flex-1 text-[#0a1b2e] leading-relaxed text-base md:text-lg">
             {es ? (
               <>
                 <p className="mb-4">
                   Todo el contenido publicado en esta plataforma es extraído y adaptado 
-                  de artículos originales de <span className="font-semibold whitespace-nowrap">El Confidencial</span>, bajo un acuerdo 
+                  de artículos originales de <span className="font-semibold">El Confidencial</span>, bajo un acuerdo 
                   de autorización para su uso y difusión.
                 </p>
 
@@ -58,7 +58,7 @@ export default function CopyrightPage() {
               <>
                 <p className="mb-4">
                   All content published on this platform is extracted and adapted
-                  from original articles by <span className="font-semibold whitespace-nowrap">El Confidencial</span>, under an agreement
+                  from original articles by <span className="font-semibold">El Confidencial</span>, under an agreement
                   authorizing its use and dissemination.
                 </p>
 
@@ -80,6 +80,7 @@ export default function CopyrightPage() {
               </>
             )}
 
+            {/* Última actualización */}
             <p className="text-sm text-gray-500 mt-6 text-center">
               {es ? "Última actualización" : "Last update"}: {new Date().toLocaleDateString()}
             </p>

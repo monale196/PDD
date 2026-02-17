@@ -4,7 +4,7 @@ import { useContext } from "react";
 import { Contenido } from "../context/NewsContext";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { LanguageContext } from "../app/layout";
+import { LanguageContext } from "../app/RootProviders";
 import { usePathname } from "next/navigation";
 
 interface RecommendationsGridProps {
@@ -31,7 +31,7 @@ export default function RecommendationsGrid({
 
   return (
     <div className="mt-12">
-      <h2 className="text-2xl md:text-3xl mb-6 text-[#0a1b2e] text-center">
+      <h2 className="text-2xl md:text-3xl mb-6 text-[var(--color-foreground)] text-center">
         {titles[language]}
       </h2>
 
@@ -69,7 +69,7 @@ export default function RecommendationsGrid({
                 stiffness: 120,
                 damping: 12,
               }}
-              className="bg-gray-100/20 rounded-xl cursor-pointer flex flex-col gap-2 p-2"
+              className="bg-[var(--color-card)] rounded-xl cursor-pointer flex flex-col gap-2 p-3 shadow-sm border border-transparent hover:border-[var(--color-accent)] transition"
             >
               {/* Imagen miniatura */}
               {a.imageUrl && (
@@ -81,32 +81,32 @@ export default function RecommendationsGrid({
               )}
 
               {/* Título */}
-              <h3 className="text-sm md:text-base font-medium text-[#0a1b2e] line-clamp-2">
+              <h3 className="text-sm md:text-base font-medium text-[var(--color-foreground)] line-clamp-2">
                 {cleanTitle}
               </h3>
 
               {/* Subtítulo */}
               {cleanSubtitle && (
-                <p className="text-xs md:text-sm text-gray-700 line-clamp-2">
+                <p className="text-xs md:text-sm text-[var(--color-gray)] line-clamp-2">
                   {cleanSubtitle}
                 </p>
               )}
 
               {/* Mini cuerpo */}
               {miniBody && (
-                <p className="text-xs text-gray-600 line-clamp-2">{miniBody}</p>
+                <p className="text-xs text-[var(--color-gray)] line-clamp-2">{miniBody}</p>
               )}
 
               {/* Fecha */}
               {formattedDate && (
-                <p className="text-gray-500 text-xs">{formattedDate}</p>
+                <p className="text-[var(--color-gray)] text-xs">{formattedDate}</p>
               )}
 
               {/* Leer más */}
               <div className="mt-1">
                 <Link
                   href={`/secciones/${a.section.toLowerCase()}?article=${a.url}&from=${pathname}`}
-                  className="inline-block px-2 py-1 text-xs bg-gray-700 text-white rounded-md hover:opacity-80"
+                  className="inline-block px-3 py-1 text-xs bg-[var(--color-accent)] text-white rounded-md hover:opacity-90 transition"
                 >
                   {language === "ES" ? "Leer más" : "Read more"}
                 </Link>

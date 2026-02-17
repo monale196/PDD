@@ -8,7 +8,7 @@ import {
   ReactNode,
   useRef,
 } from "react";
-import { LanguageContext } from "../app/layout";
+import { LanguageContext } from "../app/RootProviders";
 import { listNews, listAvailableDays } from "../src/utils/s3";
 
 export interface Contenido {
@@ -56,10 +56,7 @@ export function NewsProvider({ children }: Props) {
   const [loading, setLoading] = useState(false);
   const [daysAvailable, setDaysAvailable] = useState<string[]>([]);
 
-  // 🔒 evita cargas duplicadas
   const isLoadingRef = useRef(false);
-
-  // 🧠 evita recargar la misma combinación fecha+idioma
   const lastLoadKeyRef = useRef<string | null>(null);
 
   async function loadArticles(
@@ -74,12 +71,7 @@ export function NewsProvider({ children }: Props) {
     day = day || String(today.getDate()).padStart(2, "0");
 
     const loadKey = `${year}-${month}-${day}-${language}-${section || "all"}`;
-
-    // ⛔ misma carga → no hacer nada
-    if (lastLoadKeyRef.current === loadKey) return;
-
-    // ⛔ ya cargando → no duplicar
-    if (isLoadingRef.current) return;
+    if (lastLoadKeyRef.current === loadKey || isLoadingRef.current) return;
 
     isLoadingRef.current = true;
     lastLoadKeyRef.current = loadKey;
@@ -92,13 +84,13 @@ export function NewsProvider({ children }: Props) {
       const sectionsToLoad = section
         ? [section]
         : [
-            "empresas",
-            "espana",
-            "mercados",
-            "europa",
-            "brexit",
-            "estados-unidos",
-            "ultima-hora",
+            "economia",
+            "empleo",
+            "educacion",
+            "medio_ambiente",
+            "tecnologia",
+            "derechos_democracia",
+            "futuro",
           ];
 
       const sectionResults = await Promise.all(
@@ -120,10 +112,8 @@ export function NewsProvider({ children }: Props) {
                 const txt = await txtRes.text();
                 const lines = txt.split("\n").map((l) => l.trim());
 
-                const title =
-                  lines[0]?.replace("**Title:** ", "") || "Sin título";
-                const subtitle =
-                  lines[1]?.replace("**Subtitle:** ", "") || "";
+                const title = lines[0]?.replace("**Title:** ", "") || "Sin título";
+                const subtitle = lines[1]?.replace("**Subtitle:** ", "") || "";
                 const dateLine =
                   lines[2]?.replace("**Date:** ", "") ||
                   `${day}-${month}-${year}`;
@@ -133,11 +123,18 @@ export function NewsProvider({ children }: Props) {
                 const parts = dateLine.split(/[-/]/);
                 if (parts.length === 3) {
                   const [d, m, y] = parts;
-                  isoDate = `${y.padStart(4, "0")}-${m.padStart(
-                    2,
-                    "0"
-                  )}-${d.padStart(2, "0")}`;
+                  isoDate = `${y.padStart(4, "0")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
                 }
+
+                // URL de frontend: /{seccion}/{nombre-articulo-sin-txt}
+                const urlPath = `/${sec}/${n.txtUrl
+                  ?.split("/")
+                  .pop()
+                  ?.replace(".txt", "")}`;
+
+                // Imagen principal: si no viene explícita, usar main-image.jpg
+                const imageUrl =
+                  n.imageUrl || n.txtUrl.replace("index.txt", "main-image.jpg");
 
                 return {
                   title,
@@ -145,14 +142,13 @@ export function NewsProvider({ children }: Props) {
                   date: isoDate,
                   body,
                   section: sec,
-                  url: `/${sec}/${n.txtUrl
-                    .split("/")
-                    .pop()
-                    ?.replace(".txt", "")}`,
+                  url: urlPath,
                   txtUrl: n.txtUrl,
-                  imageUrl: n.imageUrl,
+                  imageUrl,
                 } as Contenido;
-              } catch {
+
+              } catch (err) {
+                console.error("Error leyendo txt:", n.txtUrl, err);
                 return null;
               }
             })
@@ -164,6 +160,7 @@ export function NewsProvider({ children }: Props) {
 
       const allArticles = sectionResults.flat();
 
+      // Mantener 1 artículo principal por sección
       const grouped: Record<string, Contenido> = {};
       allArticles.forEach((a) => {
         if (!grouped[a.section]) grouped[a.section] = a;
@@ -171,6 +168,7 @@ export function NewsProvider({ children }: Props) {
 
       setArticles(allArticles);
       setMainArticlesBySection(grouped);
+
     } catch (err) {
       console.error("Error cargando noticias:", err);
     } finally {

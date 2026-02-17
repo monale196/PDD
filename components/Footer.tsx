@@ -3,19 +3,19 @@
 
 export default function Footer() {
   return (
-    <footer className="bg-[#0a1b2e] text-white w-full sticky bottom-0 z-50">
-      <div className="max-w-[95%] mx-auto py-2 text-gray-200 font-medium flex justify-between items-center">
+    <footer className="bg-[var(--color-foreground)] text-[var(--color-card)] w-full">
+      <div className="max-w-[95%] mx-auto py-3 md:py-4 flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
 
         {/* IZQUIERDA: enlace derechos de autor */}
         <a 
           href="/copyright"
-          className="underline hover:text-white transition text-sm"
+          className="underline hover:text-[var(--color-accent)] transition text-sm md:text-base"
         >
           Contenido reproducido con permiso de El Confidencial
         </a>
 
         {/* DERECHA: tu texto original */}
-        <div className="text-sm">
+        <div className="text-sm md:text-base text-[var(--color-card)]">
           © Voices of Tomorrow {new Date().getFullYear()}. España
         </div>
 
