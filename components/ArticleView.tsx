@@ -4,11 +4,11 @@ import { useState, useEffect, useContext } from "react";
 import { motion } from "framer-motion";
 import { Contenido } from "../context/NewsContext";
 import { LanguageContext } from "../app/RootProviders";
-import RecommendationsGrid from "./RecommendationsGrid";
 
 interface Flashcard {
   title: string;
-  description: string;
+  summary: string;
+  icon?: string;
 }
 
 interface Poll {
@@ -18,245 +18,219 @@ interface Poll {
 
 interface ArticleViewProps {
   article: Contenido;
-  recomendaciones?: Contenido[];
 }
 
-export default function ArticleView({ article, recomendaciones = [] }: ArticleViewProps) {
+export default function ArticleView({ article }: ArticleViewProps) {
   const { language } = useContext(LanguageContext);
 
+  const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [date, setDate] = useState("");
   const [body, setBody] = useState("");
-  const [cleanTitle, setCleanTitle] = useState(article.title || "");
-  const [cleanSubtitle, setCleanSubtitle] = useState(article.subtitle || "");
-  const [formattedDate, setFormattedDate] = useState("");
-  const [confidencialLine, setConfidencialLine] = useState("");
-
   const [bullets, setBullets] = useState<string[]>([]);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
-  const [pollAnswers, setPollAnswers] = useState<Record<number, string>>({});
+  const [pollAnswers, setPollAnswers] = useState<Record<number, number>>({});
+  const [imageUrl, setImageUrl] = useState<string>("");
 
-  const [expanded, setExpanded] = useState(false);
-
-  // Iconos por categoría
-  const categoryIcons: Record<string, string> = {
-    Economia: "/icons/Economia.jpg",
-    "Medio ambiente": "/icons/Medioambiente.jpg",
-    Empleo: "/icons/Empleo.jpg",
-    "Derechos y democracia": "/icons/DerechosyDemocracia.jpg",
+  // Iconos automáticos por idioma
+  const iconMapES: Record<string, string> = {
+    "Economia": "🌍",
+    "Medio Ambiente": "🌡️",
+    "Empleo": "🌳",
+    "Derecho y Democracia": "🏭",
+  };
+  const iconMapEN: Record<string, string> = {
+    "Economy": "🌍",
+    "Enviroment": "🌡️",
+    "Employment": "🌳",
+    "Law and Democracy": "🏭",
   };
 
   useEffect(() => {
-    async function fetchBody() {
+    async function fetchText() {
       if (!article.txtUrl) return;
 
+      const res = await fetch(article.txtUrl);
+      const lines = (await res.text()).split("\n").map(l => l.trim());
+
+      // Título, subtítulo, fecha
+      const tLine = lines.find(l => /^(\*?\s*)?(Título|Title):/i.test(l)) || "";
+      const stLine = lines.find(l => /^(\*?\s*)?(Subtítulo|Subtitle):/i.test(l)) || "";
+      const dLine = lines.find(l => /^(\*?\s*)?(Fecha|Date):/i.test(l)) || article.date || "";
+
+      setTitle(tLine.replace(/^(\*?\s*)?(Título|Title):/i, "").trim() || article.title || "Sin título");
+      setSubtitle(stLine.replace(/^(\*?\s*)?(Subtítulo|Subtitle):/i, "").trim() || article.subtitle || "");
+      const parsedDate = !isNaN(new Date(dLine).getTime()) ? new Date(dLine) : new Date(article.date || Date.now());
+      setDate(parsedDate.toLocaleDateString(language === "ES" ? "es-ES" : "en-GB", { day: "2-digit", month: "short", year: "2-digit" }));
+
+      // Bullets → En breve
+      const bulletsStart = lines.indexOf("---BULLETS---");
+      if (bulletsStart !== -1) {
+        const end = lines.indexOf("---FLASHCARDS---") !== -1 ? lines.indexOf("---FLASHCARDS---") : lines.length;
+        setBullets(lines.slice(bulletsStart + 1, end).filter(l => l !== ""));
+      }
+
+      // Flashcards → Why this matters
+      const flashStart = lines.indexOf("---FLASHCARDS---");
+      if (flashStart !== -1) {
+        const end = lines.indexOf("---POLLS---") !== -1 ? lines.indexOf("---POLLS---") : lines.length;
+        const flashLines = lines.slice(flashStart + 1, end).filter(l => l !== "");
+        const tempFlash: Flashcard[] = [];
+        for (let i = 0; i < flashLines.length; i += 3) {
+          const title = flashLines[i] || "";
+          tempFlash.push({
+            title,
+            summary: flashLines[i + 1] || "",
+            icon: flashLines[i + 2] || (language === "ES" ? iconMapES[title] : iconMapEN[title]),
+          });
+        }
+        setFlashcards(tempFlash);
+      }
+
+      // Polls → Qué opinas
+      const pollStart = lines.indexOf("---POLLS---");
+      if (pollStart !== -1) {
+        const pollLines = lines.slice(pollStart + 1).filter(l => l !== "");
+        const tempPolls: Poll[] = [];
+        for (let i = 0; i < pollLines.length; i += 2) {
+          const question = pollLines[i];
+          const options = pollLines[i + 1]?.split("|").map(o => o.trim()) || [];
+          tempPolls.push({ question, options });
+        }
+        setPolls(tempPolls);
+
+        const stored = localStorage.getItem(`pollAnswers_${article.url}`);
+        if (stored) setPollAnswers(JSON.parse(stored));
+      }
+
+      // Body
+      const bodyStart = Math.max(
+        tLine ? lines.indexOf(tLine) + 1 : 0,
+        stLine ? lines.indexOf(stLine) + 1 : 0,
+        dLine ? lines.indexOf(dLine) + 1 : 0
+      );
+      setBody(lines.slice(bodyStart).join("\n"));
+
+      // Imagen principal: buscar cualquier JPG en la misma carpeta del TXT
       try {
-        const res = await fetch(article.txtUrl);
-        const lines = (await res.text())
-          .split("\n")
-          .map(l => l.trim());
+        const folderUrl = article.txtUrl.replace(/\/[^\/]+\.txt$/, "/");
+        const possibleJpg = article.txtUrl.replace(/\.txt$/, ".jpg");
+        let found = false;
 
-        const titleRegex = /^\**\s*(Título|Title):\**\s*/i;
-        const subtitleRegex = /^\**\s*(Subtítulo|Subtitle):\**\s*/i;
-        const dateRegex = /^\**\s*(Fecha|Date):\**\s*/i;
-
-        const tLine = lines.find(l => titleRegex.test(l)) || "";
-        const stLine = lines.find(l => subtitleRegex.test(l)) || "";
-        const dLine = lines.find(l => dateRegex.test(l)) || article.date || "";
-
-        const t = tLine.replace(titleRegex, "").replace(/\*/g, "").trim() || "Sin título";
-        const st = stLine.replace(subtitleRegex, "").replace(/\*/g, "").trim() || "";
-        const rawDate = dLine.replace(dateRegex, "").replace(/\*/g, "").trim();
-
-        const parsedDate = !isNaN(new Date(rawDate).getTime())
-          ? new Date(rawDate)
-          : new Date(article.date || Date.now());
-
-        const formatted = parsedDate.toLocaleDateString(
-          language === "ES" ? "es-ES" : "en-GB",
-          { day: "2-digit", month: "2-digit", year: "2-digit" }
-        );
-
-        setCleanTitle(t);
-        setCleanSubtitle(st);
-        setFormattedDate(formatted);
-
-        const bodyStartIndex = Math.max(
-          tLine ? lines.indexOf(tLine) + 1 : 0,
-          stLine ? lines.indexOf(stLine) + 1 : 0,
-          dLine ? lines.indexOf(dLine) + 1 : 0
-        );
-
-        const bodyLines = lines.slice(bodyStartIndex);
-
-        let detectedConfidencial = "";
-        const filteredBody = bodyLines.filter(line => {
-          const esLine = line.includes("Artículo basado en información de El Confidencial");
-          const enLine = line.includes("Article based on information from El Confidencial");
-          if (esLine || enLine) {
-            detectedConfidencial = line.replace(/\*/g, "");
-            return false;
-          }
-          return true;
-        });
-        setConfidencialLine(detectedConfidencial);
-
-        const bulletsStart = filteredBody.indexOf("---BULLETS---");
-        const flashcardsStart = filteredBody.indexOf("---FLASHCARDS---");
-        const pollsStart = filteredBody.indexOf("---POLLS---");
-
-        if (bulletsStart !== -1) {
-          const end = flashcardsStart !== -1 ? flashcardsStart : pollsStart !== -1 ? pollsStart : filteredBody.length;
-          setBullets(filteredBody.slice(bulletsStart + 1, end).filter(l => l !== ""));
+        const resp = await fetch(possibleJpg);
+        if (resp.ok) {
+          setImageUrl(possibleJpg);
+          found = true;
         }
 
-        if (flashcardsStart !== -1) {
-          const end = pollsStart !== -1 ? pollsStart : filteredBody.length;
-          const parsedFlashcards: Flashcard[] = filteredBody
-            .slice(flashcardsStart + 1, end)
-            .filter(l => l !== "")
-            .map(line => {
-              const [title, desc] = line.split(" - ");
-              return { title: title?.trim() || "", description: desc?.trim() || "" };
-            });
-          setFlashcards(parsedFlashcards);
+        if (!found) {
+          const fallback = folderUrl + "index.jpg";
+          const fallbackResp = await fetch(fallback);
+          if (fallbackResp.ok) setImageUrl(fallback);
         }
-
-        if (pollsStart !== -1) {
-          const parsedPolls: Poll[] = filteredBody
-            .slice(pollsStart + 1)
-            .filter(l => l !== "")
-            .map(line => {
-              const [question, opts] = line.split(" | ");
-              return { question: question?.trim() || "", options: opts?.split(",").map(o => o.trim()) || [] };
-            });
-          setPolls(parsedPolls);
-        }
-
-        const specialIndexes = [bulletsStart, flashcardsStart, pollsStart].filter(i => i !== -1);
-        const bodyEndIndex = specialIndexes.length ? Math.min(...specialIndexes) : filteredBody.length;
-        setBody(filteredBody.slice(0, bodyEndIndex).join("\n"));
-
-      } catch {
-        setBody(article.body || "");
+      } catch (e) {
+        console.warn("No se pudo cargar la imagen principal:", e);
       }
     }
 
-    fetchBody();
+    fetchText();
   }, [article, language]);
 
-  if (!article) return null;
-
-  const previewLines = body.split("\n").filter(l => l.trim() !== "").slice(0, 3).join("\n");
+  const handlePollClick = (pollIndex: number, optionIndex: number) => {
+    setPollAnswers(prev => {
+      const updated = { ...prev, [pollIndex]: optionIndex };
+      localStorage.setItem(`pollAnswers_${article.url}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 120 }}
-      className="rounded-3xl shadow-lg overflow-hidden max-w-6xl mx-auto bg-[var(--color-card)]"
-    >
-      {/* IMAGEN PRINCIPAL */}
-      {article.imageUrl && (
-        <div className="relative w-full h-80 md:h-[400px]">
-          <img src={article.imageUrl} alt={cleanTitle} className="w-full h-full object-cover" />
-          {/* BULLETS FLOTANTES */}
+    <div className="p-6 md:p-8 max-w-6xl mx-auto">
+      {/* TITULO */}
+      <h1 className="text-3xl md:text-4xl font-extrabold mb-2 text-[var(--color-foreground)]">{title}</h1>
+      {subtitle && <h3 className="text-lg md:text-xl text-[var(--color-gray)] mb-6">{subtitle}</h3>}
+
+      {/* SECCION SUPERIOR: BULLETS + BOTON (IZQ) / IMAGEN (DER) */}
+      <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-6">
+        {/* IZQUIERDA: Bullets + boton */}
+        <div className="flex flex-col space-y-4 md:max-w-md">
           {bullets.length > 0 && (
             <motion.div
               whileHover={{ scale: 1.02 }}
-              className="absolute top-4 left-4 md:top-8 md:left-8 bg-[var(--color-card)] bg-opacity-95 p-6 rounded-2xl shadow-2xl max-w-md border-2 border-[var(--color-accent)]"
+              className="bg-[var(--color-card)] p-6 rounded-2xl shadow-md border border-[var(--color-accent)]"
             >
-              <h4 className="text-lg font-bold mb-2 text-[var(--color-foreground)]">{language === "ES" ? "En breve" : "In brief"}</h4>
+              <h4 className="text-lg font-bold mb-2">{language === "ES" ? "En breve" : "In brief"}</h4>
               <ul className="list-disc list-inside space-y-2 text-[var(--color-gray)] text-sm font-medium">
                 {bullets.map((b, i) => <li key={i}>{b}</li>)}
               </ul>
             </motion.div>
           )}
-        </div>
-      )}
 
-      {/* CONTENIDO */}
-      <div className="p-6 md:p-8">
-        <h1 className="text-3xl md:text-4xl font-extrabold mb-2 text-[var(--color-foreground)]">{cleanTitle}</h1>
-        {cleanSubtitle && <h3 className="text-lg md:text-xl text-[var(--color-gray)] mb-4">{cleanSubtitle}</h3>}
-        {formattedDate && <p className="text-sm text-[var(--color-gray)] mb-6">{formattedDate}</p>}
-
-        <p className="whitespace-pre-wrap text-lg md:text-xl leading-relaxed mb-4">{expanded ? body : previewLines}</p>
-        {body && body.length > previewLines.length && (
-          <button onClick={() => setExpanded(!expanded)}
-            className="mt-2 px-6 py-2 bg-[var(--color-accent)] text-white rounded-full font-semibold hover:opacity-90 transition">
-            {expanded ? (language === "ES" ? "Leer menos" : "Read less") : (language === "ES" ? "Leer más" : "Read more")}
+          {/* Botón El Confidencial */}
+          <button className="px-6 py-3 bg-[var(--color-accent)] text-white rounded-full font-semibold hover:opacity-90 transition">
+            {language === "ES" ? "Leer más en El Confidencial" : "Read more on El Confidencial"}
           </button>
-        )}
+        </div>
 
-        {/* FLASHCARDS */}
-        {flashcards.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 mt-6">
-            {flashcards.map((f, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-br from-[var(--color-accent)]/20 to-[var(--color-accent)]/5 rounded-3xl shadow-xl p-4 flex flex-col items-center text-center cursor-pointer"
-              >
-                <div className="w-16 h-16 bg-[var(--color-accent)] rounded-full flex items-center justify-center mb-3 shadow-lg">
-                  <img src={categoryIcons[f.title] || "/icons/default.jpg"} alt={f.title} className="w-10 h-10 object-contain" />
-                </div>
-                <h5 className="font-semibold mb-1 text-[var(--color-foreground)]">{f.title}</h5>
-                <p className="text-[var(--color-gray)] text-sm">{f.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        )}
-
-        {/* POLLS */}
-        {polls.length > 0 && (
-          <div className="space-y-4 mb-6">
-            {polls.map((p, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="bg-gradient-to-r from-[var(--color-accent)]/20 to-[var(--color-accent)]/10 rounded-2xl shadow-md p-4"
-              >
-                <p className="font-semibold mb-2 text-[var(--color-foreground)]">{p.question}</p>
-                <div className="flex gap-3 flex-wrap">
-                  {p.options.map((opt, j) => (
-                    <motion.button
-                      key={j}
-                      whileTap={{ scale: 0.9 }}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition
-                        ${pollAnswers[i] === opt
-                          ? "bg-[var(--color-foreground)] text-white shadow-lg"
-                          : "bg-[var(--color-accent)] text-white hover:opacity-90"
-                        }`}
-                      onClick={() => setPollAnswers(prev => ({ ...prev, [i]: opt }))}
-                    >
-                      {opt}
-                    </motion.button>
-                  ))}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
-
-        {confidencialLine && <p className="text-sm italic text-[var(--color-gray)] mb-6">{confidencialLine}</p>}
-
-        {recomendaciones.length > 0 && <RecommendationsGrid articles={recomendaciones} />}
-
-        {article.url && (
-          <div className="mt-6 text-center">
-            <a href={`https://www.elconfidencial.com${article.url}`} target="_blank" rel="noopener noreferrer"
-              className="inline-block px-6 py-3 bg-[var(--color-accent)] text-white rounded-full font-semibold hover:opacity-90 transition">
-              {language === "ES" ? "Leer artículo completo en El Confidencial" : "Read full article on El Confidencial"}
-            </a>
+        {/* DERECHA: Imagen principal */}
+        {imageUrl && (
+          <div className="w-full md:w-2/3 h-80 md:h-[400px]">
+            <img src={imageUrl} alt={title} className="w-full h-full object-cover rounded-2xl shadow-md" />
           </div>
         )}
       </div>
-    </motion.div>
+
+      {/* FLASHCARDS */}
+      {flashcards.length > 0 && (
+        <div className="mb-10">
+          <h2 className="text-xl font-bold mb-4">{language === "ES" ? "Por qué importa" : "Why this matters"}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            {flashcards.map((f, i) => (
+              <motion.div key={i} whileHover={{ scale: 1.03 }} className="bg-[var(--color-card)] p-4 rounded-2xl shadow-md border border-[var(--color-accent)]">
+                <div className="flex items-center mb-2 space-x-2">
+                  {f.icon && <span className="text-2xl">{f.icon}</span>}
+                  <h4 className="font-semibold text-[var(--color-foreground)]">{f.title}</h4>
+                </div>
+                <p className="text-[var(--color-gray)] text-sm">{f.summary}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* POLLS */}
+      {polls.length > 0 && (
+        <div className="mb-10">
+          <h2 className="text-xl font-bold mb-4">{language === "ES" ? "Qué opinas" : "What do you think?"}</h2>
+          <div className="grid grid-cols-2 gap-4">
+            {polls.map((poll, pIndex) =>
+              poll.options.map((opt, oIndex) => (
+                <motion.div
+                  key={`${pIndex}_${oIndex}`}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-[var(--color-card)] p-4 rounded-2xl shadow-md border border-[var(--color-accent)] flex flex-col items-start"
+                >
+                  {oIndex === 0 && <p className="font-semibold mb-2">{poll.question}</p>}
+                  <button
+                    onClick={() => handlePollClick(pIndex, oIndex)}
+                    className={`px-4 py-2 mb-1 rounded-full font-medium text-sm transition ${
+                      pollAnswers[pIndex] === oIndex
+                        ? "bg-[var(--color-accent)] text-white"
+                        : "bg-[var(--color-gray)] text-[var(--color-foreground)] hover:bg-[var(--color-accent)] hover:text-white"
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                  <span className="text-xs text-[var(--color-gray)] mt-1">
+                    {pollAnswers[pIndex] === oIndex ? 1 : 0} {language === "ES" ? "votos" : "votes"}
+                  </span>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

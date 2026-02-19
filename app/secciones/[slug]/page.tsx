@@ -26,7 +26,6 @@ export default function SectionPage() {
   // 🔄 Cargar artículos si hay filtro de fecha
   useEffect(() => {
     if (!dateFilter) return;
-
     const [year, month, day] = dateFilter.split("-");
     loadArticles(year, month, day);
   }, [dateFilter, loadArticles]);
@@ -70,8 +69,7 @@ export default function SectionPage() {
       .slice()
       .sort(
         (a, b) =>
-          new Date(b.date).getTime() -
-          new Date(a.date).getTime()
+          new Date(b.date).getTime() - new Date(a.date).getTime()
       )[0];
   }, [
     sectionArticles,
@@ -80,18 +78,8 @@ export default function SectionPage() {
     loading,
   ]);
 
-  // 🔥 Recomendaciones (MISMA SECCIÓN)
-  const recomendaciones = useMemo(() => {
-    if (!mainArticle || loading) return [];
-
-    return sectionArticles
-      .filter((a) => a.url !== mainArticle.url)
-      .slice(0, 4);
-  }, [sectionArticles, mainArticle, loading]);
-
   return (
-    <div className="px-4 md:px-16 py-12 space-y-16 max-w-4xl mx-auto">
-
+    <div className="px-4 md:px-16 py-12 space-y-16 max-w-6xl mx-auto">
       {/* LOADING */}
       {loading && (
         <p className="text-center text-gray-500 text-lg animate-pulse">
@@ -105,7 +93,6 @@ export default function SectionPage() {
       {!loading && mainArticle && (
         <ArticleView
           article={mainArticle}
-          recomendaciones={recomendaciones}
         />
       )}
 

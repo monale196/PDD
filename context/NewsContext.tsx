@@ -9,7 +9,6 @@ import {
   useRef,
 } from "react";
 import { LanguageContext } from "../app/RootProviders";
-import { listNews, listAvailableDays } from "../src/utils/s3";
 
 export interface Contenido {
   title: string;
@@ -47,6 +46,35 @@ interface Props {
   children: ReactNode;
 }
 
+// 🔹 Funciones para llamar a la API
+async function listAvailableDays(year: string, month: string) {
+  const res = await fetch(`/api/news?year=${year}&month=${month}`);
+  const data = await res.json();
+  return data.sections as string[];
+}
+
+async function listNews(
+  year: string,
+  month: string,
+  day: string,
+  lang: string,
+  section: string
+) {
+  const res = await fetch(
+    `/api/news?year=${year}&month=${month}&day=${day}&section=${section}`
+  );
+  const data = await res.json();
+  const files = data.files as string[];
+
+  return files
+    .map((key) => {
+      if (key.endsWith(".txt")) return { txtUrl: `https://${process.env.NEXT_PUBLIC_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}` };
+      if (key.endsWith(".jpg")) return { imageUrl: `https://${process.env.NEXT_PUBLIC_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}` };
+      return null;
+    })
+    .filter(Boolean);
+}
+
 export function NewsProvider({ children }: Props) {
   const { language } = useContext(LanguageContext);
 
@@ -78,6 +106,7 @@ export function NewsProvider({ children }: Props) {
     setLoading(true);
 
     try {
+      // 🔹 Obtener días disponibles vía API
       const availableDays = await listAvailableDays(year, month);
       setDaysAvailable(availableDays);
 
@@ -95,16 +124,10 @@ export function NewsProvider({ children }: Props) {
 
       const sectionResults = await Promise.all(
         sectionsToLoad.map(async (sec) => {
-          const news = await listNews(
-            year!,
-            month!,
-            day!,
-            language.toLowerCase(),
-            sec
-          );
+          const news = await listNews(year!, month!, day!, language.toLowerCase(), sec);
 
           const articlesFromSection = await Promise.all(
-            news.map(async (n) => {
+            news.map(async (n: any) => {
               if (!n.txtUrl) return null;
 
               try {
@@ -114,9 +137,7 @@ export function NewsProvider({ children }: Props) {
 
                 const title = lines[0]?.replace("**Title:** ", "") || "Sin título";
                 const subtitle = lines[1]?.replace("**Subtitle:** ", "") || "";
-                const dateLine =
-                  lines[2]?.replace("**Date:** ", "") ||
-                  `${day}-${month}-${year}`;
+                const dateLine = lines[2]?.replace("**Date:** ", "") || `${day}-${month}-${year}`;
                 const body = lines.slice(3).join("\n");
 
                 let isoDate = `${year}-${month}-${day}`;
@@ -126,15 +147,8 @@ export function NewsProvider({ children }: Props) {
                   isoDate = `${y.padStart(4, "0")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
                 }
 
-                // URL de frontend: /{seccion}/{nombre-articulo-sin-txt}
-                const urlPath = `/${sec}/${n.txtUrl
-                  ?.split("/")
-                  .pop()
-                  ?.replace(".txt", "")}`;
-
-                // Imagen principal: si no viene explícita, usar main-image.jpg
-                const imageUrl =
-                  n.imageUrl || n.txtUrl.replace("index.txt", "main-image.jpg");
+                const urlPath = `/${sec}/${n.txtUrl?.split("/").pop()?.replace(".txt", "")}`;
+                const imageUrl = n.imageUrl || n.txtUrl.replace("index.txt", "main-image.jpg");
 
                 return {
                   title,
@@ -160,7 +174,6 @@ export function NewsProvider({ children }: Props) {
 
       const allArticles = sectionResults.flat();
 
-      // Mantener 1 artículo principal por sección
       const grouped: Record<string, Contenido> = {};
       allArticles.forEach((a) => {
         if (!grouped[a.section]) grouped[a.section] = a;
