@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useContext } from "react";
 import { motion } from "framer-motion";
-import { Contenido } from "../context/NewsContext";
+import { Contenido, NewsContext } from "../context/NewsContext";
 import { LanguageContext } from "../app/RootProviders";
+import RecommendationsGrid from "./RecommendationsGrid";
 
 interface Flashcard {
   title: string;
@@ -22,6 +23,7 @@ interface ArticleViewProps {
 
 export default function ArticleView({ article }: ArticleViewProps) {
   const { language } = useContext(LanguageContext);
+  const { articles: allArticles } = useContext(NewsContext);
 
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
@@ -33,18 +35,17 @@ export default function ArticleView({ article }: ArticleViewProps) {
   const [pollAnswers, setPollAnswers] = useState<Record<number, number>>({});
   const [imageUrl, setImageUrl] = useState<string>("");
 
-  // Iconos automáticos por idioma
   const iconMapES: Record<string, string> = {
-    "Economia": "🌍",
-    "Medio Ambiente": "🌡️",
-    "Empleo": "🌳",
-    "Derecho y Democracia": "🏭",
+    "Economía": "💶",
+    "Medio Ambiente": "🌱",
+    "Empleo": "💼",
+    "Derecho y Democracia": "⚖️",
   };
   const iconMapEN: Record<string, string> = {
-    "Economy": "🌍",
-    "Enviroment": "🌡️",
-    "Employment": "🌳",
-    "Law and Democracy": "🏭",
+    "Economy": "💶",
+    "Environment": "🌱",
+    "Employment": "💼",
+    "Law and Democracy": "⚖️",
   };
 
   useEffect(() => {
@@ -112,7 +113,7 @@ export default function ArticleView({ article }: ArticleViewProps) {
       );
       setBody(lines.slice(bodyStart).join("\n"));
 
-      // Imagen principal: buscar cualquier JPG en la misma carpeta del TXT
+      // Imagen principal: buscar JPG
       try {
         const folderUrl = article.txtUrl.replace(/\/[^\/]+\.txt$/, "/");
         const possibleJpg = article.txtUrl.replace(/\.txt$/, ".jpg");
@@ -231,6 +232,11 @@ export default function ArticleView({ article }: ArticleViewProps) {
           </div>
         </div>
       )}
+
+      {/* ===============================
+          RECOMMENDATIONS GRID
+      =============================== */}
+      <RecommendationsGrid articles={allArticles} currentArticle={article} />
     </div>
   );
 }

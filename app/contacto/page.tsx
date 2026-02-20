@@ -47,13 +47,13 @@ export default function ContactoPage() {
   };
 
   return (
-    <section className={`${merriweather.variable} font-sans max-w-5xl mx-auto px-6 py-16 space-y-12 bg-white text-[#0a1b2e]`}>
+    <section className={`${merriweather.variable} max-w-5xl mx-auto px-6 md:px-16 py-16 space-y-12 bg-white text-[var(--color-foreground)]`}>
       <h1 className="text-4xl font-normal text-center">{language === "ES" ? "Contacto" : "Contact"}</h1>
 
-      <div className="bg-gray-100/40 p-8 rounded-2xl shadow-xl shadow-[#0a1b2e]/20">
+      <div className="bg-[var(--color-card)] p-8 rounded-2xl shadow-md shadow-[var(--color-accent)]/20">
         <p className="text-lg mb-4 text-center">
           {language === "ES" ? "Cualquier duda escríbenos a:" : "If you have questions, write to us at:"}{" "}
-          <a href="mailto:pperiodicodigitalml@gmail.com" className="text-[#0a1b2e] underline">
+          <a href="mailto:pperiodicodigitalml@gmail.com" className="text-[var(--color-accent)] underline">
             pperiodicodigitalml@gmail.com
           </a>
         </p>
@@ -71,7 +71,7 @@ export default function ContactoPage() {
             placeholder={language === "ES" ? "Nombre" : "Name"}
             value={formData.nombre}
             onChange={handleChange}
-            className="w-full p-3 text-black rounded-lg border border-gray-300 bg-white shadow-sm shadow-[#0a1b2e]/10 focus:ring-2 focus:ring-[#0a1b2e]"
+            className="w-full p-4 text-black rounded-2xl border border-[var(--color-accent)] bg-white shadow-md focus:ring-2 focus:ring-[var(--color-accent)] transition"
             required
           />
 
@@ -81,7 +81,7 @@ export default function ContactoPage() {
             placeholder="Email"
             value={formData.email}
             onChange={handleChange}
-            className="w-full p-3 text-black rounded-lg border border-gray-300 bg-white shadow-sm shadow-[#0a1b2e]/10 focus:ring-2 focus:ring-[#0a1b2e]"
+            className="w-full p-4 text-black rounded-2xl border border-[var(--color-accent)] bg-white shadow-md focus:ring-2 focus:ring-[var(--color-accent)] transition"
             required
           />
 
@@ -90,14 +90,14 @@ export default function ContactoPage() {
             placeholder={language === "ES" ? "Tu mensaje" : "Your message"}
             value={formData.mensaje}
             onChange={handleChange}
-            className="w-full p-3 text-black rounded-lg border border-gray-300 bg-white shadow-sm shadow-[#0a1b2e]/10 focus:ring-2 focus:ring-[#0a1b2e] h-40 resize-none"
+            className="w-full p-4 text-black rounded-2xl border border-[var(--color-accent)] bg-white shadow-md focus:ring-2 focus:ring-[var(--color-accent)] h-40 resize-none transition"
             required
           />
 
           <button
             type="submit"
             disabled={loading}
-            className="bg-[#0a1b2e] text-white px-6 py-3 rounded-xl hover:opacity-90 transition w-full"
+            className="bg-[var(--color-accent)] text-white px-6 py-3 rounded-2xl hover:opacity-90 transition w-full"
           >
             {loading
               ? language === "ES" ? "Enviando..." : "Sending..."

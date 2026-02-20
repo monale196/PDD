@@ -18,70 +18,61 @@ export default function SearchResultsPage() {
   const { language } = useContext(LanguageContext);
 
   const keywordFromUrl = searchParams.get("keyword") || "";
+  const [localKeyword, setLocalKeyword] = useState(keywordFromUrl);
   const [sortBy, setSortBy] = useState<SortOption>("title-asc");
 
-  // Traducciones dinámicas
+  /* =========================
+     TRADUCCIONES
+  ========================= */
   const t = {
     es: {
       resultsFor: "Resultados para",
-      goBack: "← Regresar",
-      sortBy: "Ordenar:",
-      noResults: "No hay noticias relacionadas con esta búsqueda.",
-      readMore: "Leer más",
-      titleAsc: "Título A-Z",
-      titleDesc: "Título Z-A",
+      goBack: "← Volver",
+      sortBy: "Ordenar por:",
+      noResults: "No se encontraron artículos relacionados.",
+      readMore: "Leer artículo",
+      titleAsc: "Título A–Z",
+      titleDesc: "Título Z–A",
+      searchPlaceholder: "Buscar noticias…",
     },
     en: {
       resultsFor: "Results for",
       goBack: "← Go back",
       sortBy: "Sort by:",
-      noResults: "No news found for this search.",
-      readMore: "Read more",
-      titleAsc: "Title A-Z",
-      titleDesc: "Title Z-A",
+      noResults: "No related articles found.",
+      readMore: "Read article",
+      titleAsc: "Title A–Z",
+      titleDesc: "Title Z–A",
+      searchPlaceholder: "Search news…",
     },
   };
 
-  const tr = useMemo(() => {
-    const lang = language === "EN" ? "en" : "es";
-    return t[lang];
-  }, [language]);
+  const tr = language === "EN" ? t.en : t.es;
 
-  // Diccionario de palabras clave bilingüe
-  const keywordMap: Record<string, string[]> = {
-    economy: ["economía"],
-    economía: ["economy"],
-    market: ["mercado", "mercados"],
-    mercado: ["market", "markets"],
-    spain: ["espana", "españa"],
-    españa: ["spain", "espana"],
-  };
-
-  // Sincronizar keyword desde URL
+  /* =========================
+     SINCRONIZAR KEYWORD
+  ========================= */
   useEffect(() => {
     if (keywordFromUrl && keywordFromUrl !== keyword) {
       setKeyword(keywordFromUrl);
+      setLocalKeyword(keywordFromUrl);
     }
-  }, [keywordFromUrl, keyword, setKeyword]);
+  }, [keywordFromUrl]);
 
-  // Limpieza de texto según idioma (quita Title/Subtitulo)
-  const cleanText = (text = "") => {
-    if (!text) return "";
-    let cleaned = text.replace(/\*\*/g, "").trim();
-    if (language === "EN") {
-      cleaned = cleaned.replace(/Title:/gi, "").replace(/Subtitle:/gi, "").replace(/Date:/gi, "");
-    } else {
-      cleaned = cleaned.replace(/Título:/gi, "").replace(/Subtítulo:/gi, "").replace(/Fecha:/gi, "");
-    }
-    return cleaned.trim();
-  };
+  /* =========================
+     UTILIDADES
+  ========================= */
+  const cleanText = (text = "") =>
+    text
+      .replace(/\*\*/g, "")
+      .replace(/(Título|Title|Subtítulo|Subtitle|Fecha|Date):/gi, "")
+      .trim();
 
-  // Formateo de fecha
   const formatDate = (iso: string) => {
     const date = new Date(iso);
     if (isNaN(date.getTime())) return "";
     return date.toLocaleDateString(
-      language === "EN" ? "en-US" : "es-ES",
+      language === "EN" ? "en-GB" : "es-ES",
       { day: "2-digit", month: "short", year: "numeric" }
     );
   };
@@ -90,34 +81,36 @@ export default function SearchResultsPage() {
      FILTRADO Y ORDENAMIENTO
   ========================= */
   const results = useMemo(() => {
-    const all = [...articles];
+    let filtered = [...articles];
 
-    // Filtrar por keyword
-    let filtered = all;
     if (keyword.trim()) {
       const q = keyword.toLowerCase();
-      const keywordsToSearch = [q, ...(keywordMap[q] ?? [])];
-
-      filtered = all.filter(a => {
-        const text = `${a.title} ${a.subtitle ?? ""} ${a.body}`.toLowerCase();
-        return keywordsToSearch.some(k => text.includes(k));
-      });
+      filtered = filtered.filter(a =>
+        `${a.title} ${a.subtitle ?? ""}`.toLowerCase().includes(q)
+      );
     }
 
-    // Ordenar por título
-    if (sortBy === "title-asc") {
-      filtered.sort((a, b) => cleanText(a.title).localeCompare(cleanText(b.title)));
-    } else {
-      filtered.sort((a, b) => cleanText(b.title).localeCompare(cleanText(a.title)));
-    }
+    filtered.sort((a, b) =>
+      sortBy === "title-asc"
+        ? cleanText(a.title).localeCompare(cleanText(b.title))
+        : cleanText(b.title).localeCompare(cleanText(a.title))
+    );
 
     return filtered;
-  }, [keyword, articles, sortBy, language]);
+  }, [articles, keyword, sortBy]);
 
-  // Navegación al artículo completo en SectionPage
+  /* =========================
+     ACCIONES
+  ========================= */
   const handleReadMore = (article: Contenido) => {
     setDateFilter(article.date);
-    router.push(`/secciones/${article.section}`);
+    router.push(`/secciones/${article.section}?article=${article.url}`);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setKeyword(localKeyword);
+    router.push(`/search?keyword=${encodeURIComponent(localKeyword)}`);
   };
 
   const handleGoBack = () => {
@@ -125,29 +118,52 @@ export default function SearchResultsPage() {
     router.back();
   };
 
+  /* =========================
+     RENDER
+  ========================= */
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 text-[#0a1b2e] space-y-8">
+    <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
 
       {/* HEADER */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <h1 className="text-2xl font-bold text-[var(--color-foreground)]">
           {tr.resultsFor} “{keyword || keywordFromUrl}”
         </h1>
+
         <button
           onClick={handleGoBack}
-          className="text-[#ff6f61] hover:underline font-medium"
+          className="text-[var(--color-accent)] font-medium hover:underline"
         >
           {tr.goBack}
         </button>
       </div>
 
+      {/* BUSCADOR */}
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col md:flex-row gap-4"
+      >
+        <input
+          value={localKeyword}
+          onChange={(e) => setLocalKeyword(e.target.value)}
+          placeholder={tr.searchPlaceholder}
+          className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+        />
+        <button
+          type="submit"
+          className="px-6 py-3 rounded-xl bg-[var(--color-accent)] text-white font-semibold hover:opacity-90 transition"
+        >
+          Buscar
+        </button>
+      </form>
+
       {/* ORDENAR */}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center gap-2">
         <span className="font-medium">{tr.sortBy}</span>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as SortOption)}
-          className="border border-gray-300 rounded px-2 py-1"
+          className="border border-gray-300 rounded-lg px-3 py-2"
         >
           <option value="title-asc">{tr.titleAsc}</option>
           <option value="title-desc">{tr.titleDesc}</option>
@@ -156,57 +172,39 @@ export default function SearchResultsPage() {
 
       {/* RESULTADOS */}
       {results.length === 0 ? (
-        <p className="text-[#6c7a89] text-lg mt-4">{tr.noResults}</p>
+        <p className="text-[var(--color-gray)] text-lg">
+          {tr.noResults}
+        </p>
       ) : (
         <AnimatePresence>
-          <div className="space-y-6 mt-4">
+          <div className="space-y-6">
             {results.map(article => (
               <motion.div
                 key={article.url}
-                initial={{ opacity: 0, y: 15 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 15 }}
-                className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow duration-200"
+                exit={{ opacity: 0, y: 12 }}
+                className="bg-[var(--color-card)] border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition"
               >
-                {/* IMAGEN PRINCIPAL */}
-                {article.imageUrl && (
-                  <img
-                    src={article.imageUrl}
-                    alt={cleanText(article.title)}
-                    className="w-full h-48 object-cover rounded-lg mb-3"
-                  />
-                )}
-
-                {/* TÍTULO */}
-                <h2 className="text-xl font-semibold text-[#0a1b2e]">
+                <h2 className="text-xl font-semibold text-[var(--color-foreground)]">
                   {cleanText(article.title)}
                 </h2>
 
-                {/* FECHA */}
+                {article.subtitle && (
+                  <p className="text-[var(--color-gray)] mt-2">
+                    {cleanText(article.subtitle)}
+                  </p>
+                )}
+
                 {formatDate(article.date) && (
-                  <p className="text-sm text-[#6c7a89] mt-1">
+                  <p className="text-sm text-[var(--color-gray)] mt-1">
                     {formatDate(article.date)}
                   </p>
                 )}
 
-                {/* SUBTÍTULO */}
-                {article.subtitle && (
-                  <p className="text-[#6c7a89] mt-2">{cleanText(article.subtitle)}</p>
-                )}
-
-                {/* MINI PREVIEW / BULLETS */}
-                {article.body && (
-                  <ul className="list-disc pl-5 mt-2 text-[#6c7a89]">
-                    {article.body.split("\n").slice(0,3).map((line,i) => (
-                      <li key={i}>{line}</li>
-                    ))}
-                  </ul>
-                )}
-
-                {/* LEER MÁS */}
                 <button
                   onClick={() => handleReadMore(article)}
-                  className="mt-3 text-[#ff6f61] font-medium hover:underline"
+                  className="mt-4 inline-block text-[var(--color-accent)] font-semibold hover:underline"
                 >
                   {tr.readMore}
                 </button>

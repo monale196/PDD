@@ -50,11 +50,10 @@ export default function HistoriasVivas() {
   const [entrevistas, setEntrevistas] = useState<Entrevista[]>([]);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [recentLikes, setRecentLikes] = useState(0);
-  const [recentDislikes, setRecentDislikes] = useState(0);
-  const [userVote, setUserVote] = useState<"like" | "dislike" | null>(null);
+  const [userVote, setUserVote] = useState<"like" | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const targetDate = new Date("2026-02-01T00:00:00");
+  const targetDate = new Date("2026-02-25T00:00:00");
   const [countdown, setCountdown] = useState("");
   const [beforeNewYear, setBeforeNewYear] = useState(true);
 
@@ -81,7 +80,7 @@ export default function HistoriasVivas() {
       .finally(() => setLoading(false));
   }, [beforeNewYear]);
 
-  // --- Artículo reciente ---
+  // --- Entrevista reciente ---
   const entrevistaReciente = useMemo(() => {
     if (beforeNewYear || entrevistas.length === 0) return null;
     if (dateFilter) {
@@ -93,19 +92,29 @@ export default function HistoriasVivas() {
   const otrasEntrevistas = entrevistas.filter((e) => e !== entrevistaReciente);
 
   if (loading && !beforeNewYear) {
-    return <p className="text-center py-12">{language === "ES" ? "Cargando entrevistas..." : "Loading interviews..."}</p>;
+    return (
+      <p className="text-center py-12 text-[var(--color-foreground)]">
+        {language === "ES" ? "Cargando entrevistas..." : "Loading interviews..."}
+      </p>
+    );
   }
 
   return (
     <EntrevistasContext.Provider value={{ entrevistas }}>
-      <div className={`${merriweather.variable} bg-white min-h-screen text-[#0a1b2e] px-4 md:px-16 py-12 space-y-16`}>
+      <div className={`${merriweather.variable} bg-white min-h-screen text-[var(--color-foreground)] px-4 md:px-16 py-12 space-y-16`}>
 
-        {/* Countdown si antes del 1 de enero */}
+        {/* Countdown si antes del 25 de febrero */}
         {beforeNewYear && (
-          <section className="bg-gray-100/40 rounded-3xl shadow-lg p-12 flex flex-col items-center justify-center text-center">
-            <h1 className="text-3xl md:text-4xl mb-4">{language === "ES" ? "Próximamente entrevistas" : "Interviews coming soon"}</h1>
-            <p className="text-lg mb-6">{language === "ES" ? "Las entrevistas se publicarán aquí:" : "Interviews will be published here:"}</p>
-            <div className="text-4xl md:text-6xl font-bold text-[#0a1b2e]">{countdown}</div>
+          <section className="bg-[var(--color-card)]/40 rounded-3xl shadow-lg p-12 flex flex-col items-center justify-center text-center">
+            <h1 className="text-3xl md:text-4xl mb-4 font-bold">
+              {language === "ES" ? "Próximamente entrevistas" : "Interviews coming soon"}
+            </h1>
+            <p className="text-lg mb-6">
+              {language === "ES"
+                ? "Las entrevistas se publicarán aquí:"
+                : "Interviews will be published here:"}
+            </p>
+            <div className="text-4xl md:text-6xl font-bold text-[var(--color-foreground)]">{countdown}</div>
           </section>
         )}
 
@@ -115,7 +124,7 @@ export default function HistoriasVivas() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="bg-gray-100/30 rounded-3xl shadow-lg p-6 md:p-10 hover:shadow-[#0a1b2e]/50 transition cursor-pointer"
+            className="bg-[var(--color-card)] rounded-3xl shadow-md p-6 md:p-10 hover:shadow-[var(--color-accent)]/50 transition cursor-pointer"
           >
             <h1 className="text-3xl md:text-4xl mb-2">{entrevistaReciente.titulo[language]}</h1>
             <h2 className="text-md md:text-lg text-gray-700 mb-4">{entrevistaReciente.fecha}</h2>
@@ -128,13 +137,18 @@ export default function HistoriasVivas() {
               </div>
             )}
 
-            <p className="text-lg leading-relaxed">{entrevistaReciente.descripcion[language]}</p>
+            <p className="text-lg leading-relaxed line-clamp-4">{entrevistaReciente.descripcion[language]}</p>
 
             <div className="flex items-center space-x-4 mt-4">
               <button
                 disabled={!!userVote}
-                onClick={() => { if (!userVote) { setRecentLikes(recentLikes + 1); setUserVote("like"); } }}
-                className="flex items-center space-x-1 px-4 py-2 rounded-md border-2 border-[#0a1b2e] hover:bg-[#0a1b2e]/10 transition"
+                onClick={() => {
+                  if (!userVote) {
+                    setRecentLikes(recentLikes + 1);
+                    setUserVote("like");
+                  }
+                }}
+                className="flex items-center space-x-1 px-4 py-2 rounded-md border-2 border-[var(--color-foreground)] hover:bg-[var(--color-accent)] hover:text-white transition"
               >
                 👍 <span>{recentLikes + entrevistaReciente.likes}</span>
               </button>
@@ -147,20 +161,22 @@ export default function HistoriasVivas() {
           <section>
             <h2 className="text-2xl md:text-3xl mb-6">{language === "ES" ? "Otras entrevistas que podrían interesarte" : "Other interviews you might be interested in"}</h2>
             <div className="grid md:grid-cols-2 gap-6">
-              {otrasEntrevistas.map((e, idx) => (
+              {otrasEntrevistas.map((e) => (
                 <Link key={e.id} href={`/historias-vivas/${e.id}`} className="group">
                   <motion.div
                     whileHover={{ scale: 1.03, boxShadow: "0 8px 20px rgba(0,0,0,0.15)" }}
-                    className="flex flex-col md:flex-row bg-gray-100/30 rounded-2xl shadow-lg p-4 transition cursor-pointer"
+                    className="flex flex-col md:flex-row bg-[var(--color-card)] rounded-2xl shadow-md p-4 transition cursor-pointer"
                   >
                     <div className="w-full md:w-48 h-32 bg-gray-300 rounded-lg flex items-center justify-center text-gray-600 mb-2 md:mb-0 md:mr-4">
                       {language === "ES" ? "Video" : "Video"}
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-xl mb-1">{e.titulo[language]}</h3>
-                      <p className="text-gray-700 text-sm mb-2">{language === "ES" ? "Fecha" : "Date"}: {e.fecha}</p>
+                      <h3 className="text-xl mb-1 line-clamp-2">{e.titulo[language]}</h3>
+                      <p className="text-gray-700 text-sm mb-2">
+                        {language === "ES" ? "Fecha" : "Date"}: {e.fecha}
+                      </p>
                       <p className="text-gray-700 line-clamp-3 mb-2">{e.descripcion[language]}</p>
-                      <span className="text-sm text-[#0a1b2e]">👍 {e.likes}</span>
+                      <span className="text-sm text-[var(--color-foreground)]">👍 {e.likes}</span>
                     </div>
                   </motion.div>
                 </Link>
