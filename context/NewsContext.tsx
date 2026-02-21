@@ -49,22 +49,17 @@ interface Props {
 // 🔹 Funciones para llamar a la API
 async function listAvailableDays(year: string, month: string) {
   const res = await fetch(`/api/news?year=${year}&month=${month}`);
-  const data = await res.json();
-  return data.sections as string[];
+  const text = await res.text(); // nunca res.json()
+  
+  // Aquí parsea los txt que tengas en S3 o simplemente devuelve algo vacío si no hay
+  const files = text.split("\n").filter(Boolean); // ejemplo
+  return files;
 }
 
-async function listNews(
-  year: string,
-  month: string,
-  day: string,
-  lang: string,
-  section: string
-) {
-  const res = await fetch(
-    `/api/news?year=${year}&month=${month}&day=${day}&section=${section}`
-  );
-  const data = await res.json();
-  const files = data.files as string[];
+async function listNews(year: string, month: string, day: string, lang: string, section: string) {
+  const res = await fetch(`/api/news?year=${year}&month=${month}&day=${day}&section=${section}`);
+  const text = await res.text(); // texto plano, no JSON
+  const files = text.split("\n").filter(Boolean);
 
   return files
     .map((key) => {

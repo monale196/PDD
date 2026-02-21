@@ -1,46 +1,27 @@
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import RootProviders from "./RootProviders";
 
-const inter = Inter({
-  subsets: ["latin"],
+// 🔹 Usar ruta relativa desde `app/layout.tsx` hasta `public/fonts/...`
+const inter = localFont({
+  src: [
+    { path: "../public/fonts/inter/InterVariable.ttf", weight: "100 900", style: "normal" },
+    { path: "../public/fonts/inter/InterItalic.ttf", weight: "100 900", style: "italic" },
+  ],
   variable: "--font-inter",
+  display: "swap",
 });
 
-export const metadata = {
-  title: {
-    default: "Voices of Tomorrow",
-    template: "%s | Voices of Tomorrow",
-  },
-  description: "Periódico digital de jóvenes para jóvenes",
-  icons: {
-    icon: "/favicon.png",
-  },
-  openGraph: {
-    title: "Voices of Tomorrow",
-    description: "Periódico digital de jóvenes para jóvenes",
-    siteName: "Voices of Tomorrow",
-    locale: "es_ES",
-    type: "website",
-  },
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
-      <body
-        className={`${inter.variable} antialiased bg-white text-black min-h-screen flex flex-col`}
-      >
+    <html lang="es" className={inter.variable}>
+      <body className="antialiased min-h-screen flex flex-col bg-[var(--color-background)] text-[var(--color-foreground)] font-inter">
         <RootProviders>
           <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          <main className="flex-1 px-4 md:px-8 lg:px-16 py-6">{children}</main>
+          <Footer className="border-t border-gray-200" />
         </RootProviders>
       </body>
     </html>

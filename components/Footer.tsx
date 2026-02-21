@@ -1,9 +1,14 @@
 // components/Footer.tsx
 "use client";
+import React from "react";
 
-export default function Footer() {
+interface FooterProps extends React.HTMLAttributes<HTMLElement> {}
+
+export default function Footer({ className }: FooterProps) {
   return (
-    <footer className="bg-[var(--color-foreground)] text-[var(--color-card)] w-full relative z-40">
+    <footer
+      className={`bg-[var(--color-foreground)] text-[var(--color-card)] w-full relative z-40 ${className}`}
+    >
       <div className="max-w-[95%] mx-auto py-3 md:py-4 flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
 
         {/* IZQUIERDA: enlace derechos de autor */}
