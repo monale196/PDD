@@ -17,8 +17,8 @@ import { LanguageContext } from "../app/RootProviders";
 export interface Contenido {
   title: string;
   subtitle: string;
-  date: string; // YYYY-MM-DD
-  body?: string; // opcional
+  date: string;
+  body?: string;
   section: string;
   url: string;
   txtUrl: string;
@@ -77,7 +77,7 @@ export function NewsProvider({ children }: Props) {
     year = year || today.getFullYear().toString();
     month = month || String(today.getMonth() + 1).padStart(2, "0");
     day = day || String(today.getDate()).padStart(2, "0");
-    lang = (lang || language).toLowerCase(); // 🔹 idioma en minúsculas para S3 / API
+    lang = (lang || language).toLowerCase();
 
     const loadKey = `${year}-${month}-${day}-${lang}-${section}`;
     if (lastLoadKeyRef.current === loadKey) return;
@@ -95,11 +95,9 @@ export function NewsProvider({ children }: Props) {
 
       const data = await res.json();
 
-      // Días disponibles: si la API devuelve date, tomamos el día
       const availableDays = data.date ? [data.date.split("-")[2]] : [];
       setDaysAvailable(availableDays);
 
-      // Mapeamos artículos
       const fetchedArticles: Contenido[] = data.articles.map((art: any) => ({
         title: art.title,
         subtitle: art.subtitle,
@@ -110,14 +108,22 @@ export function NewsProvider({ children }: Props) {
         imageUrl: art.imageUrl,
       }));
 
-      // Organizar principal por sección
-      const mainBySection: Record<string, Contenido> = {};
-      for (const art of fetchedArticles) {
-        if (!mainBySection[art.section]) mainBySection[art.section] = art;
-      }
+      // 👉 SOLO Home puede tocar el estado global
+      if (section === "all") {
+        const mainBySection: Record<string, Contenido> = {};
 
-      setArticles(fetchedArticles);
-      setMainArticlesBySection(mainBySection);
+        for (const art of fetchedArticles) {
+          if (!mainBySection[art.section]) {
+            mainBySection[art.section] = art;
+          }
+        }
+
+        setArticles(fetchedArticles);
+        setMainArticlesBySection(mainBySection);
+      } else {
+        // 👉 Las secciones solo usan articles
+        setArticles(fetchedArticles);
+      }
     } catch (err) {
       console.error("❌ NewsProvider loadArticles error:", err);
     } finally {
@@ -125,6 +131,7 @@ export function NewsProvider({ children }: Props) {
     }
   }
 
+  // 🔥 Carga inicial SIEMPRE modo HOME
   useEffect(() => {
     loadArticles();
     // eslint-disable-next-line react-hooks/exhaustive-deps

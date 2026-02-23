@@ -4,6 +4,7 @@ import React, { useState, useContext, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { SearchContext, LanguageContext } from "../app/RootProviders";
+import { NewsContext } from "../context/NewsContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -12,6 +13,10 @@ import {
   MagnifyingGlassIcon,
   CalendarIcon,
 } from "@heroicons/react/24/outline";
+
+/* =========================
+   CONSTANTES
+========================= */
 
 const SLUGS: Record<string, string> = {
   Economia: "economia",
@@ -34,7 +39,6 @@ const NEWS_SECTIONS = [
   "Futuro",
 ];
 
-// Traducciones para labels dinámicos
 const LABELS: Record<string, Record<string, string>> = {
   ES: {
     menu: "Menú",
@@ -60,11 +64,16 @@ const LABELS: Record<string, Record<string, string>> = {
   },
 };
 
+/* =========================
+   COMPONENTE
+========================= */
+
 export default function Header() {
   const router = useRouter();
   const { language, setLanguage } = useContext(LanguageContext);
-  const { keyword, setKeyword, dateFilter, setDateFilter } =
+  const { keyword, setKeyword, dateFilter, setDateFilter, clearSearch } =
     useContext(SearchContext);
+  const { loadArticles } = useContext(NewsContext);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -72,14 +81,13 @@ export default function Header() {
   const [selectedDate, setSelectedDate] = useState(
     dateFilter ? new Date(dateFilter) : new Date()
   );
+
   const headerRef = useRef<HTMLElement>(null);
 
-  // Actualiza fecha si cambia dateFilter
   useEffect(() => {
     if (dateFilter) setSelectedDate(new Date(dateFilter));
   }, [dateFilter]);
 
-  // Cierra menús al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
@@ -92,7 +100,6 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fecha formateada según idioma
   const formattedDate = selectedDate.toLocaleDateString(
     language === "ES" ? "es-ES" : "en-GB",
     { day: "2-digit", month: "short", year: "numeric" }
@@ -129,6 +136,19 @@ export default function Header() {
     return language === "ES" ? sec : map[sec] || sec;
   };
 
+  /* =========================
+     🔥 VOLVER A HOME (con recarga completa de artículos)
+========================= */
+  const goHome = async () => {
+    clearSearch(); // limpia keyword y dateFilter
+    await loadArticles(undefined, undefined, undefined, "all"); // fuerza carga de todas las secciones
+    router.push("/"); // navega a home solo después de cargar
+  };
+
+  /* =========================
+     RENDER
+========================= */
+
   return (
     <header
       ref={headerRef}
@@ -147,6 +167,7 @@ export default function Header() {
               <Bars3Icon className="w-5 h-5" />
               {LABELS[language].menu}
             </button>
+
             <AnimatePresence>
               {menuOpen && (
                 <motion.div
@@ -164,7 +185,9 @@ export default function Header() {
                       {translateSection(sec)}
                     </Link>
                   ))}
+
                   <hr className="my-2" />
+
                   <Link
                     href="/historias-vivas"
                     className="block py-1 hover:text-[var(--color-accent)]"
@@ -172,7 +195,9 @@ export default function Header() {
                   >
                     {LABELS[language].stories}
                   </Link>
+
                   <hr className="my-2" />
+
                   <Link
                     href="/contacto"
                     className="block py-1 hover:text-[var(--color-accent)]"
@@ -180,6 +205,7 @@ export default function Header() {
                   >
                     {LABELS[language].contact}
                   </Link>
+
                   <Link
                     href="/quienes-somos"
                     className="block py-1 hover:text-[var(--color-accent)]"
@@ -201,6 +227,7 @@ export default function Header() {
               <MagnifyingGlassIcon className="w-5 h-5" />
               {LABELS[language].search}
             </button>
+
             <AnimatePresence>
               {searchOpen && (
                 <motion.div
@@ -229,6 +256,7 @@ export default function Header() {
               <CalendarIcon className="w-5 h-5" />
               {LABELS[language].archive} | {formattedDate}
             </button>
+
             <AnimatePresence>
               {hemerotecaOpen && (
                 <motion.div
@@ -239,9 +267,7 @@ export default function Header() {
                     type="date"
                     min="2026-02-21"
                     value={selectedDate.toISOString().split("T")[0]}
-                    onChange={(e) =>
-                      setSelectedDate(new Date(e.target.value))
-                    }
+                    onChange={(e) => setSelectedDate(new Date(e.target.value))}
                     className="w-full border rounded px-2 py-1"
                   />
                   <button
@@ -258,7 +284,7 @@ export default function Header() {
 
         {/* LOGO CENTRADO */}
         <div className="flex justify-center">
-          <Link href="/">
+          <button onClick={goHome}>
             <Image
               src="/img/logo.png"
               alt="Voices of Tomorrow"
@@ -267,14 +293,15 @@ export default function Header() {
               className="object-contain lg:scale-110"
               priority
             />
-          </Link>
+          </button>
         </div>
 
         {/* DERECHA */}
         <div className="flex items-center gap-4 justify-end">
-          <Link href="/" className="text-[var(--color-accent)]">
+          <button onClick={goHome} className="text-[var(--color-accent)]">
             <HomeIcon className="w-6 h-6" />
-          </Link>
+          </button>
+
           <button
             onClick={() => setLanguage(language === "ES" ? "EN" : "ES")}
             className="px-3 py-1 bg-[var(--color-accent)] text-white rounded font-semibold text-sm"

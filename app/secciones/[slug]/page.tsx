@@ -14,19 +14,18 @@ export default function SectionPage() {
   const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug || "";
   const sectionSlug = slug.toLowerCase();
 
-  const langContext = useContext(LanguageContext);
   const lang: "ES" | "EN" = pathname.startsWith("/EN/") ? "EN" : "ES";
+  const langLower = lang.toLowerCase();
 
   const { articles, loadArticles, loading } = useContext(NewsContext);
   const { dateFilter } = useContext(SearchContext);
 
   const queryArticleSlug = searchParams.get("article");
 
-  // 🔹 idioma en minúsculas estable
-  const langLower = lang.toLowerCase();
-
+  /* ============================
+     FETCH POR SECCIÓN
+  ============================ */
   useEffect(() => {
-    // ✅ función async interna para no cambiar array de dependencias
     async function fetchSectionArticles() {
       if (dateFilter) {
         const [year, month, day] = dateFilter.split("-");
@@ -40,35 +39,31 @@ export default function SectionPage() {
   }, [dateFilter, sectionSlug, loadArticles, langLower]);
 
   /* ============================
-     FILTRADO POR SECCIÓN
-  ============================ */
-  const sectionArticles = useMemo(() => {
-    return articles.filter((a) => a.section.toLowerCase() === sectionSlug);
-  }, [articles, sectionSlug]);
-
-  /* ============================
      ARTÍCULO PRINCIPAL
   ============================ */
   const mainArticle: Contenido | undefined = useMemo(() => {
-    if (loading || sectionArticles.length === 0) return undefined;
+    if (loading || articles.length === 0) return undefined;
 
     if (queryArticleSlug) {
-      return sectionArticles.find((a) =>
+      return articles.find((a) =>
         a.url.endsWith(`/${queryArticleSlug}`)
       );
     }
 
     if (dateFilter) {
-      return sectionArticles[0];
+      return articles[0];
     }
 
-    return sectionArticles
+    return articles
       .slice()
       .sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       )[0];
-  }, [sectionArticles, queryArticleSlug, dateFilter, loading]);
+  }, [articles, queryArticleSlug, dateFilter, loading]);
 
+  /* ============================
+     RENDER
+  ============================ */
   return (
     <div className="px-4 md:px-16 py-12 space-y-16 max-w-6xl mx-auto">
       {loading && (

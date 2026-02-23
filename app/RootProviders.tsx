@@ -42,11 +42,13 @@ export const SearchContext = createContext<{
   setKeyword: (v: string) => void;
   dateFilter: string;
   setDateFilter: (v: string) => void;
+  clearSearch: () => void; // 🔹 agregado
 }>({
   keyword: "",
   setKeyword: () => {},
   dateFilter: "",
   setDateFilter: () => {},
+  clearSearch: () => {}, // 🔹 fallback seguro
 });
 
 /* =======================
@@ -70,11 +72,17 @@ export default function RootProviders({ children }: { children: ReactNode }) {
       document.removeEventListener("click", handleClickOutside);
   }, []);
 
+  // 🔹 función para limpiar búsqueda y filtro de fecha
+  const clearSearch = () => {
+    setKeyword("");
+    setDateFilter("");
+  };
+
   return (
     <LanguageContext.Provider value={{ language, setLanguage }}>
       <EntrevistasContext.Provider value={{ entrevistas, setEntrevistas }}>
         <SearchContext.Provider
-          value={{ keyword, setKeyword, dateFilter, setDateFilter }}
+          value={{ keyword, setKeyword, dateFilter, setDateFilter, clearSearch }}
         >
           <NewsProvider>{children}</NewsProvider>
         </SearchContext.Provider>
