@@ -1,13 +1,15 @@
-"use client";
-export const dynamic = "force-dynamic";
+// app/buscar/page.tsx
 
+"use client";
+import { Suspense } from "react";
 import SearchResultsPage from "@/components/SearchResultsPage";
 
-//Esto evita que Next.js intente prerenderizar la página
-
+export const dynamic = "force-dynamic";
 
 export default function BuscarPage() {
-  return <SearchResultsPage />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SearchResultsPage />
+    </Suspense>
+  );
 }
-
-
