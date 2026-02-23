@@ -1,4 +1,6 @@
 // components/Footer.tsx
+export const dynamic = "force-dynamic";
+
 "use client";
 import React from "react";
 
