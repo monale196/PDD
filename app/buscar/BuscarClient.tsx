@@ -2,11 +2,8 @@
 
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useSearch } from "../../context/SearchContext";
-import SearchResultsPage from "../../components/SearchResultsPage";
-
-// 🔴 Evita que Next intente prerenderizar
-export const dynamic = "force-dynamic";
+import { useSearch } from "@/context/SearchContext";
+import SearchResultsPage from "@/components/SearchResultsPage";
 
 export default function BuscarClient() {
   const searchParams = useSearchParams();
@@ -14,7 +11,6 @@ export default function BuscarClient() {
 
   const { keyword, setKeyword } = useSearch();
 
-  // Sincroniza la keyword de la URL con el contexto
   useEffect(() => {
     if (keywordFromUrl !== keyword) {
       setKeyword(keywordFromUrl);

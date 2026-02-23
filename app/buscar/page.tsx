@@ -1,7 +1,11 @@
-"use client";
-
-import SearchResultsPage from "@/components/SearchResultsPage";
+// app/buscar/page.tsx
+import { Suspense } from "react";
+import BuscarClient from "./BuscarClient";
 
 export default function BuscarPage() {
-  return <SearchResultsPage />;
+  return (
+    <Suspense fallback={<div>Cargando búsqueda...</div>}>
+      <BuscarClient />
+    </Suspense>
+  );
 }
