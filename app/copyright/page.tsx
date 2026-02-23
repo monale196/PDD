@@ -24,10 +24,10 @@ export default function CopyrightPage() {
         </h1>
 
         {/* Contenido con imagen a la izquierda y texto a la derecha */}
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-10">
+        <div className="flex flex-col md:flex-row items-center md:items-center gap-6 md:gap-10">
 
-          {/* Imagen */}
-          <div className="flex-shrink-0 md:self-start">
+          {/* Imagen centrada verticalmente */}
+          <div className="flex-shrink-0 md:self-center">
             <img
               src="/img/elconfidencial.jpg"
               alt="El Confidencial"

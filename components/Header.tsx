@@ -6,7 +6,12 @@ import Image from "next/image";
 import { SearchContext, LanguageContext } from "../app/RootProviders";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Bars3Icon, HomeIcon, MagnifyingGlassIcon, CalendarIcon } from "@heroicons/react/24/outline";
+import {
+  Bars3Icon,
+  HomeIcon,
+  MagnifyingGlassIcon,
+  CalendarIcon,
+} from "@heroicons/react/24/outline";
 
 const SLUGS: Record<string, string> = {
   Economia: "economia",
@@ -29,21 +34,52 @@ const NEWS_SECTIONS = [
   "Futuro",
 ];
 
+// Traducciones para labels dinámicos
+const LABELS: Record<string, Record<string, string>> = {
+  ES: {
+    menu: "Menú",
+    search: "Buscar",
+    archive: "Hemeroteca",
+    ok: "OK",
+    news: "Noticias",
+    stories: "Historias por contar",
+    contact: "Contacto",
+    about: "Quiénes somos",
+    searchPlaceholder: "Buscar...",
+  },
+  EN: {
+    menu: "Menu",
+    search: "Search",
+    archive: "Archive",
+    ok: "OK",
+    news: "News",
+    stories: "Living Stories",
+    contact: "Contact",
+    about: "About Us",
+    searchPlaceholder: "Search...",
+  },
+};
+
 export default function Header() {
   const router = useRouter();
   const { language, setLanguage } = useContext(LanguageContext);
-  const { keyword, setKeyword, dateFilter, setDateFilter } = useContext(SearchContext);
+  const { keyword, setKeyword, dateFilter, setDateFilter } =
+    useContext(SearchContext);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [hemerotecaOpen, setHemerotecaOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(dateFilter ? new Date(dateFilter) : new Date());
+  const [selectedDate, setSelectedDate] = useState(
+    dateFilter ? new Date(dateFilter) : new Date()
+  );
   const headerRef = useRef<HTMLElement>(null);
 
+  // Actualiza fecha si cambia dateFilter
   useEffect(() => {
     if (dateFilter) setSelectedDate(new Date(dateFilter));
   }, [dateFilter]);
 
+  // Cierra menús al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
@@ -56,8 +92,17 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const formattedDate = selectedDate.toLocaleDateString(language === "ES" ? "es-ES" : "en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  const panelAnim = { initial: { opacity: 0, y: -6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -6 } };
+  // Fecha formateada según idioma
+  const formattedDate = selectedDate.toLocaleDateString(
+    language === "ES" ? "es-ES" : "en-GB",
+    { day: "2-digit", month: "short", year: "numeric" }
+  );
+
+  const panelAnim = {
+    initial: { opacity: 0, y: -6 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -6 },
+  };
 
   const executeSearch = () => {
     if (!keyword.trim()) return;
@@ -81,40 +126,67 @@ export default function Header() {
       Futuro: "Future",
       "Historias-Vivas": "Living Stories",
     };
-    return map[sec] || sec;
+    return language === "ES" ? sec : map[sec] || sec;
   };
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-50 bg-[var(--color-background)] shadow-sm w-full">
-
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-50 w-full bg-[var(--color-background)] shadow-sm"
+    >
       {/* ================= LINEA SUPERIOR ================= */}
-      <div className="max-w-[1200px] mx-auto flex items-center justify-between py-3 px-6">
-
+      <div className="w-full grid grid-cols-3 items-center py-3 px-8">
         {/* IZQUIERDA */}
-        <div className="flex items-center gap-6">
-
+        <div className="flex items-center gap-6 justify-start">
           {/* MENU */}
           <div className="relative">
-            <button onClick={() => setMenuOpen(v => !v)} className="flex items-center gap-1 hover:text-[var(--color-accent)]">
-              <Bars3Icon className="w-5 h-5"/>
-              <span className="font-semibold">Menú</span>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="flex items-center gap-1 font-semibold hover:text-[var(--color-accent)]"
+            >
+              <Bars3Icon className="w-5 h-5" />
+              {LABELS[language].menu}
             </button>
             <AnimatePresence>
               {menuOpen && (
-                <motion.div {...panelAnim} className="absolute top-10 left-0 w-60 bg-white shadow-md rounded p-4 z-50">
-                  <p className="font-semibold mb-2">{language === "ES" ? "Noticias" : "News"}</p>
-                  {NEWS_SECTIONS.map(sec => (
-                    <Link key={sec} href={`/secciones/${SLUGS[sec]}`} className="block py-1 hover:text-[var(--color-accent)]">
-                      {language === "ES" ? sec : translateSection(sec)}
+                <motion.div
+                  {...panelAnim}
+                  className="absolute top-10 left-0 w-60 bg-white shadow-md rounded p-4 z-50"
+                >
+                  <p className="font-semibold mb-2">{LABELS[language].news}</p>
+                  {NEWS_SECTIONS.map((sec) => (
+                    <Link
+                      key={sec}
+                      href={`/secciones/${SLUGS[sec]}`}
+                      className="block py-1 hover:text-[var(--color-accent)]"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {translateSection(sec)}
                     </Link>
                   ))}
-                  <hr className="my-2"/>
-                  <Link href="/historias-vivas" className="block py-1 hover:text-[var(--color-accent)]">
-                    {language === "ES" ? "Historias por contar" : "Living Stories"}
+                  <hr className="my-2" />
+                  <Link
+                    href="/historias-vivas"
+                    className="block py-1 hover:text-[var(--color-accent)]"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {LABELS[language].stories}
                   </Link>
-                  <hr className="my-2"/>
-                  <Link href="/contacto" className="block py-1 hover:text-[var(--color-accent)]">Contacto</Link>
-                  <Link href="/quienes-somos" className="block py-1 hover:text-[var(--color-accent)]">Quiénes somos</Link>
+                  <hr className="my-2" />
+                  <Link
+                    href="/contacto"
+                    className="block py-1 hover:text-[var(--color-accent)]"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {LABELS[language].contact}
+                  </Link>
+                  <Link
+                    href="/quienes-somos"
+                    className="block py-1 hover:text-[var(--color-accent)]"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {LABELS[language].about}
+                  </Link>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -122,19 +194,25 @@ export default function Header() {
 
           {/* BUSCAR */}
           <div className="relative">
-            <button onClick={() => setSearchOpen(v => !v)} className="flex items-center gap-1 hover:text-[var(--color-accent)]">
-              <MagnifyingGlassIcon className="w-5 h-5"/>
-              <span className="font-semibold">Buscar</span>
+            <button
+              onClick={() => setSearchOpen((v) => !v)}
+              className="flex items-center gap-1 font-semibold hover:text-[var(--color-accent)]"
+            >
+              <MagnifyingGlassIcon className="w-5 h-5" />
+              {LABELS[language].search}
             </button>
             <AnimatePresence>
               {searchOpen && (
-                <motion.div {...panelAnim} className="absolute top-10 left-0 w-60 bg-white shadow-md rounded p-2 z-50">
+                <motion.div
+                  {...panelAnim}
+                  className="absolute top-10 left-0 w-60 bg-white shadow-md rounded p-2 z-50"
+                >
                   <input
                     type="text"
                     value={keyword}
-                    onChange={e => setKeyword(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && executeSearch()}
-                    placeholder={language === "ES" ? "Buscar..." : "Search..."}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && executeSearch()}
+                    placeholder={LABELS[language].searchPlaceholder}
                     className="w-full border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                   />
                 </motion.div>
@@ -144,40 +222,58 @@ export default function Header() {
 
           {/* HEMEROTECA */}
           <div className="relative">
-            <button onClick={() => setHemerotecaOpen(v => !v)} className="flex items-center gap-1 hover:text-[var(--color-accent)]">
-              <CalendarIcon className="w-5 h-5"/>
-              <span className="font-semibold">Hemeroteca | {formattedDate}</span>
+            <button
+              onClick={() => setHemerotecaOpen((v) => !v)}
+              className="flex items-center gap-1 font-semibold hover:text-[var(--color-accent)]"
+            >
+              <CalendarIcon className="w-5 h-5" />
+              {LABELS[language].archive} | {formattedDate}
             </button>
             <AnimatePresence>
               {hemerotecaOpen && (
-                <motion.div {...panelAnim} className="absolute top-10 left-0 w-48 bg-white shadow-md rounded p-2 z-50">
+                <motion.div
+                  {...panelAnim}
+                  className="absolute top-10 left-0 w-48 bg-white shadow-md rounded p-2 z-50"
+                >
                   <input
                     type="date"
+                    min="2026-02-21"
                     value={selectedDate.toISOString().split("T")[0]}
-                    onChange={e => setSelectedDate(new Date(e.target.value))}
+                    onChange={(e) =>
+                      setSelectedDate(new Date(e.target.value))
+                    }
                     className="w-full border rounded px-2 py-1"
                   />
-                  <button onClick={applyDateFilter} className="mt-2 w-full bg-[var(--color-accent)] text-white py-1 rounded">
-                    OK
+                  <button
+                    onClick={applyDateFilter}
+                    className="mt-2 w-full bg-[var(--color-accent)] text-white py-1 rounded"
+                  >
+                    {LABELS[language].ok}
                   </button>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
-
         </div>
 
-        {/* CENTRO */}
-        <div className="flex-shrink-0 mx-auto">
+        {/* LOGO CENTRADO */}
+        <div className="flex justify-center">
           <Link href="/">
-            <Image src="/img/logo.png" alt="Voices of Tomorrow" width={180} height={60} className="object-contain"/>
+            <Image
+              src="/img/logo.png"
+              alt="Voices of Tomorrow"
+              width={180}
+              height={60}
+              className="object-contain lg:scale-110"
+              priority
+            />
           </Link>
         </div>
 
         {/* DERECHA */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 justify-end">
           <Link href="/" className="text-[var(--color-accent)]">
-            <HomeIcon className="w-6 h-6"/>
+            <HomeIcon className="w-6 h-6" />
           </Link>
           <button
             onClick={() => setLanguage(language === "ES" ? "EN" : "ES")}
@@ -186,20 +282,22 @@ export default function Header() {
             {language}
           </button>
         </div>
-
       </div>
 
       {/* ================= BARRA INFERIOR ================= */}
       <nav className="bg-[var(--color-background)] py-2">
-        <div className="max-w-[1200px] mx-auto flex justify-center gap-12 text-sm font-medium">
-          {NEWS_SECTIONS.map(sec => (
-            <Link key={sec} href={`/secciones/${SLUGS[sec]}`} className="hover:text-[var(--color-accent)]">
-              {language === "ES" ? sec : translateSection(sec)}
+        <div className="w-full flex justify-center gap-12 px-8 text-sm font-medium">
+          {NEWS_SECTIONS.map((sec) => (
+            <Link
+              key={sec}
+              href={`/secciones/${SLUGS[sec]}`}
+              className="hover:text-[var(--color-accent)]"
+            >
+              {translateSection(sec)}
             </Link>
           ))}
         </div>
       </nav>
-
     </header>
   );
 }

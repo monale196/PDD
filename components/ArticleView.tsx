@@ -1,242 +1,276 @@
 "use client";
 
-import { useState, useEffect, useContext } from "react";
+import { useEffect, useState, useContext } from "react";
 import { motion } from "framer-motion";
-import { Contenido, NewsContext } from "../context/NewsContext";
-import { LanguageContext } from "../app/RootProviders";
 import RecommendationsGrid from "./RecommendationsGrid";
+import { LanguageContext } from "../app/RootProviders";
 
-interface Flashcard {
-  title: string;
-  summary: string;
-  icon?: string;
-}
+const iconMap: Record<string, string> = {
+  Economía: "/icons/Economy.png",
+  Economy: "/icons/Economy.png",
+  Sociedad: "/icons/Society.png",
+  Society: "/icons/Society.png",
+  Futuro: "/icons/Future.png",
+  Future: "/icons/Future.png",
+};
 
-interface Poll {
-  question: string;
-  options: string[];
-}
+const labels = {
+  es: {
+    brief: "En breve",
+    why: "¿Por qué importa?",
+    opinion: "¿Qué opinas?",
+    debate: "Debate",
+    placeholder: "Escribe tu opinión…",
+    anonymous: "Publicar como anónimo",
+    send: "Enviar",
+    name: "Tu nombre (opcional)",
+  },
+  en: {
+    brief: "In brief",
+    why: "Why it matters",
+    opinion: "What do you think?",
+    debate: "Discussion",
+    placeholder: "Write your opinion…",
+    anonymous: "Post anonymously",
+    send: "Send",
+    name: "Your name (optional)",
+  },
+};
 
-interface ArticleViewProps {
-  article: Contenido;
-}
+type Flashcard = { title: string; summary: string };
+type Poll = { question: string; options: string[]; votes: number[] };
 
-export default function ArticleView({ article }: ArticleViewProps) {
-  const { language } = useContext(LanguageContext);
-  const { articles: allArticles } = useContext(NewsContext);
+export default function ArticleView({ article, allArticles }: any) {
+  const { language } = useContext(LanguageContext); // "ES" o "EN"
+  const lang = language.toLowerCase() as "es" | "en";
+  const t = labels[lang];
 
-  const [title, setTitle] = useState("");
-  const [subtitle, setSubtitle] = useState("");
-  const [date, setDate] = useState("");
-  const [body, setBody] = useState("");
   const [bullets, setBullets] = useState<string[]>([]);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
-  const [pollAnswers, setPollAnswers] = useState<Record<number, number>>({});
-  const [imageUrl, setImageUrl] = useState<string>("");
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [anonymous, setAnonymous] = useState(true);
+  const [comment, setComment] = useState(""); // 🟢 textarea estado
 
-  const iconMapES: Record<string, string> = {
-    "Economía": "💶",
-    "Medio Ambiente": "🌱",
-    "Empleo": "💼",
-    "Derecho y Democracia": "⚖️",
-  };
-  const iconMapEN: Record<string, string> = {
-    "Economy": "💶",
-    "Environment": "🌱",
-    "Employment": "💼",
-    "Law and Democracy": "⚖️",
-  };
+  const cleanText = (text?: string) =>
+    text?.replace(/^(Título:|Title:|Subtítulo:|Subtitle:)\s*/i, "") || "";
 
+  const title =
+    cleanText(lang === "en" ? article.title_en : article.title_es) ||
+    cleanText(article.title) ||
+    "Sin título";
+  const subtitle =
+    cleanText(lang === "en" ? article.subtitle_en : article.subtitle_es) ||
+    cleanText(article.subtitle) ||
+    "";
+  const txtUrl =
+    (lang === "en" ? article.txtUrl_en : article.txtUrl_es) || article.txtUrl || "";
+  const imageUrl = txtUrl ? txtUrl.replace("article.txt", "image.jpg") : "/default-image.jpg";
+
+  /* ───────── PARSE TXT ───────── */
   useEffect(() => {
-    async function fetchText() {
-      if (!article.txtUrl) return;
+    if (!txtUrl) return;
 
-      const res = await fetch(article.txtUrl);
-      const lines = (await res.text()).split("\n").map(l => l.trim());
+    fetch(txtUrl)
+      .then((r) => r.text())
+      .then((txt) => {
+        const lines = txt.split("\n");
+        const b: string[] = [];
+        const f: Flashcard[] = [];
+        const p: Poll[] = [];
+        let section = "";
+        let currentPoll: Poll | null = null;
 
-      // Título, subtítulo, fecha
-      const tLine = lines.find(l => /^(\*?\s*)?(Título|Title):/i.test(l)) || "";
-      const stLine = lines.find(l => /^(\*?\s*)?(Subtítulo|Subtitle):/i.test(l)) || "";
-      const dLine = lines.find(l => /^(\*?\s*)?(Fecha|Date):/i.test(l)) || article.date || "";
+        lines.forEach((raw) => {
+          const line = raw.trim();
+          if (line.startsWith("---")) {
+            section = line;
+            return;
+          }
 
-      setTitle(tLine.replace(/^(\*?\s*)?(Título|Title):/i, "").trim() || article.title || "Sin título");
-      setSubtitle(stLine.replace(/^(\*?\s*)?(Subtítulo|Subtitle):/i, "").trim() || article.subtitle || "");
-      const parsedDate = !isNaN(new Date(dLine).getTime()) ? new Date(dLine) : new Date(article.date || Date.now());
-      setDate(parsedDate.toLocaleDateString(language === "ES" ? "es-ES" : "en-GB", { day: "2-digit", month: "short", year: "2-digit" }));
+          if (section === "---BULLETS---" && line.startsWith("-")) {
+            b.push(line.replace(/^-\s*/, ""));
+          }
 
-      // Bullets → En breve
-      const bulletsStart = lines.indexOf("---BULLETS---");
-      if (bulletsStart !== -1) {
-        const end = lines.indexOf("---FLASHCARDS---") !== -1 ? lines.indexOf("---FLASHCARDS---") : lines.length;
-        setBullets(lines.slice(bulletsStart + 1, end).filter(l => l !== ""));
-      }
+          if (section === "---FLASHCARDS---" && line.includes(":")) {
+            const [t, s] = line.split(":");
+            f.push({
+              title: t.replace(/^\d+\.\s*/, "").trim(),
+              summary: s.trim(),
+            });
+          }
 
-      // Flashcards → Why this matters
-      const flashStart = lines.indexOf("---FLASHCARDS---");
-      if (flashStart !== -1) {
-        const end = lines.indexOf("---POLLS---") !== -1 ? lines.indexOf("---POLLS---") : lines.length;
-        const flashLines = lines.slice(flashStart + 1, end).filter(l => l !== "");
-        const tempFlash: Flashcard[] = [];
-        for (let i = 0; i < flashLines.length; i += 3) {
-          const title = flashLines[i] || "";
-          tempFlash.push({
-            title,
-            summary: flashLines[i + 1] || "",
-            icon: flashLines[i + 2] || (language === "ES" ? iconMapES[title] : iconMapEN[title]),
-          });
-        }
-        setFlashcards(tempFlash);
-      }
+          if (section === "---POLLS---") {
+            if (/^\d+\./.test(line)) {
+              if (currentPoll) p.push(currentPoll);
+              const q = line.replace(/^\d+\.\s*/, "");
+              const inline = q.match(/\((.*?)\)/);
+              if (inline) {
+                const options = inline[1].split("/").map((o) => o.trim());
+                currentPoll = {
+                  question: q.replace(/\(.*?\)/, "").trim(),
+                  options,
+                  votes: Array(options.length).fill(0),
+                };
+              } else {
+                currentPoll = { question: q, options: [], votes: [] };
+              }
+            }
+            if (line.startsWith("-") && currentPoll) {
+              currentPoll.options.push(line.replace("- ", ""));
+              currentPoll.votes.push(0);
+            }
+          }
+        });
 
-      // Polls → Qué opinas
-      const pollStart = lines.indexOf("---POLLS---");
-      if (pollStart !== -1) {
-        const pollLines = lines.slice(pollStart + 1).filter(l => l !== "");
-        const tempPolls: Poll[] = [];
-        for (let i = 0; i < pollLines.length; i += 2) {
-          const question = pollLines[i];
-          const options = pollLines[i + 1]?.split("|").map(o => o.trim()) || [];
-          tempPolls.push({ question, options });
-        }
-        setPolls(tempPolls);
+        if (currentPoll) p.push(currentPoll);
+        setBullets(b);
+        setFlashcards(f);
+        setPolls(p);
+      });
+  }, [txtUrl, lang]);
 
-        const stored = localStorage.getItem(`pollAnswers_${article.url}`);
-        if (stored) setPollAnswers(JSON.parse(stored));
-      }
-
-      // Body
-      const bodyStart = Math.max(
-        tLine ? lines.indexOf(tLine) + 1 : 0,
-        stLine ? lines.indexOf(stLine) + 1 : 0,
-        dLine ? lines.indexOf(dLine) + 1 : 0
-      );
-      setBody(lines.slice(bodyStart).join("\n"));
-
-      // Imagen principal: buscar JPG
-      try {
-        const folderUrl = article.txtUrl.replace(/\/[^\/]+\.txt$/, "/");
-        const possibleJpg = article.txtUrl.replace(/\.txt$/, ".jpg");
-        let found = false;
-
-        const resp = await fetch(possibleJpg);
-        if (resp.ok) {
-          setImageUrl(possibleJpg);
-          found = true;
-        }
-
-        if (!found) {
-          const fallback = folderUrl + "index.jpg";
-          const fallbackResp = await fetch(fallback);
-          if (fallbackResp.ok) setImageUrl(fallback);
-        }
-      } catch (e) {
-        console.warn("No se pudo cargar la imagen principal:", e);
-      }
-    }
-
-    fetchText();
-  }, [article, language]);
-
-  const handlePollClick = (pollIndex: number, optionIndex: number) => {
-    setPollAnswers(prev => {
-      const updated = { ...prev, [pollIndex]: optionIndex };
-      localStorage.setItem(`pollAnswers_${article.url}`, JSON.stringify(updated));
-      return updated;
-    });
+  const vote = (pi: number, oi: number) => {
+    if (answers[pi] !== undefined) return;
+    setAnswers({ ...answers, [pi]: oi });
+    setPolls((prev) =>
+      prev.map((p, i) =>
+        i === pi
+          ? { ...p, votes: p.votes.map((v, j) => (j === oi ? v + 1 : v)) }
+          : p
+      )
+    );
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto">
-      {/* TITULO */}
-      <h1 className="text-3xl md:text-4xl font-extrabold mb-2 text-[var(--color-foreground)]">{title}</h1>
-      {subtitle && <h3 className="text-lg md:text-xl text-[var(--color-gray)] mb-6">{subtitle}</h3>}
+    <article className="max-w-6xl mx-auto px-6 py-20 space-y-28">
+      {/* HEADER */}
+      <header>
+        <h1 className="text-6xl font-extrabold mb-4">{title}</h1>
+        {subtitle && <p className="text-3xl text-gray-600">{subtitle}</p>}
+      </header>
 
-      {/* SECCION SUPERIOR: BULLETS + BOTON (IZQ) / IMAGEN (DER) */}
-      <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-6">
-        {/* IZQUIERDA: Bullets + boton */}
-        <div className="flex flex-col space-y-4 md:max-w-md">
-          {bullets.length > 0 && (
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="bg-[var(--color-card)] p-6 rounded-2xl shadow-md border border-[var(--color-accent)]"
-            >
-              <h4 className="text-lg font-bold mb-2">{language === "ES" ? "En breve" : "In brief"}</h4>
-              <ul className="list-disc list-inside space-y-2 text-[var(--color-gray)] text-sm font-medium">
-                {bullets.map((b, i) => <li key={i}>{b}</li>)}
-              </ul>
-            </motion.div>
-          )}
-
-          {/* Botón El Confidencial */}
-          <button className="px-6 py-3 bg-[var(--color-accent)] text-white rounded-full font-semibold hover:opacity-90 transition">
-            {language === "ES" ? "Leer más en El Confidencial" : "Read more on El Confidencial"}
-          </button>
+      {/* EN BREVE + IMAGEN mitad y mitad con sombra azul marino */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-gray-300/50 text-black backdrop-blur-xl rounded-3xl p-8 shadow-[0_4px_20px_rgba(0,0,64,0.4)] flex flex-col">
+          <h3 className="font-extrabold text-3xl mb-4">{t.brief}</h3>
+          <ul className="list-disc list-inside space-y-3 text-lg">
+            {bullets.map((b, i) => (
+              <li key={i}>{b}</li>
+            ))}
+          </ul>
         </div>
-
-        {/* DERECHA: Imagen principal */}
-        {imageUrl && (
-          <div className="w-full md:w-2/3 h-80 md:h-[400px]">
-            <img src={imageUrl} alt={title} className="w-full h-full object-cover rounded-2xl shadow-md" />
-          </div>
-        )}
+        <div className="shadow-[0_4px_20px_rgba(0,0,64,0.4)] rounded-3xl">
+          <img
+            src={imageUrl}
+            className="w-full h-full object-cover rounded-3xl"
+          />
+        </div>
       </div>
 
       {/* FLASHCARDS */}
-      {flashcards.length > 0 && (
-        <div className="mb-10">
-          <h2 className="text-xl font-bold mb-4">{language === "ES" ? "Por qué importa" : "Why this matters"}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-            {flashcards.map((f, i) => (
-              <motion.div key={i} whileHover={{ scale: 1.03 }} className="bg-[var(--color-card)] p-4 rounded-2xl shadow-md border border-[var(--color-accent)]">
-                <div className="flex items-center mb-2 space-x-2">
-                  {f.icon && <span className="text-2xl">{f.icon}</span>}
-                  <h4 className="font-semibold text-[var(--color-foreground)]">{f.title}</h4>
-                </div>
-                <p className="text-[var(--color-gray)] text-sm">{f.summary}</p>
-              </motion.div>
-            ))}
-          </div>
+      <section>
+        <h2 className="text-4xl font-extrabold mb-14">{t.why}</h2>
+        <div className="grid md:grid-cols-3 gap-12">
+          {flashcards.map((c, i) => (
+            <motion.div
+              key={i}
+              whileHover={{ scale: 1.07 }}
+              className="bg-white rounded-3xl p-12 text-center shadow-[0_6px_18px_rgba(59,130,246,0.35)]"
+            >
+              <img src={iconMap[c.title]} className="w-24 h-24 mx-auto mb-8" />
+              <h3 className="font-bold text-2xl mb-5">{c.title}</h3>
+              <p className="text-gray-600 text-lg">{c.summary}</p>
+            </motion.div>
+          ))}
         </div>
-      )}
+      </section>
 
       {/* POLLS */}
-      {polls.length > 0 && (
-        <div className="mb-10">
-          <h2 className="text-xl font-bold mb-4">{language === "ES" ? "Qué opinas" : "What do you think?"}</h2>
-          <div className="grid grid-cols-2 gap-4">
-            {polls.map((poll, pIndex) =>
-              poll.options.map((opt, oIndex) => (
-                <motion.div
-                  key={`${pIndex}_${oIndex}`}
-                  whileTap={{ scale: 0.95 }}
-                  className="bg-[var(--color-card)] p-4 rounded-2xl shadow-md border border-[var(--color-accent)] flex flex-col items-start"
-                >
-                  {oIndex === 0 && <p className="font-semibold mb-2">{poll.question}</p>}
-                  <button
-                    onClick={() => handlePollClick(pIndex, oIndex)}
-                    className={`px-4 py-2 mb-1 rounded-full font-medium text-sm transition ${
-                      pollAnswers[pIndex] === oIndex
-                        ? "bg-[var(--color-accent)] text-white"
-                        : "bg-[var(--color-gray)] text-[var(--color-foreground)] hover:bg-[var(--color-accent)] hover:text-white"
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                  <span className="text-xs text-[var(--color-gray)] mt-1">
-                    {pollAnswers[pIndex] === oIndex ? 1 : 0} {language === "ES" ? "votos" : "votes"}
-                  </span>
-                </motion.div>
-              ))
-            )}
-          </div>
+      <section>
+        <h2 className="text-4xl font-extrabold mb-14">{t.opinion}</h2>
+        <div className="grid md:grid-cols-2 gap-12">
+          {polls.map((p, pi) => {
+            const maxVotes = Math.max(...p.votes);
+            return (
+              <div key={pi} className="bg-white p-12 rounded-3xl shadow-xl">
+                <p className="text-2xl font-semibold mb-10 text-center">{p.question}</p>
+                <div className="flex flex-wrap gap-6 justify-center">
+                  {p.options.map((o, oi) => {
+                    const isWinning = p.votes[oi] === maxVotes && maxVotes > 0;
+                    return (
+                      <div key={oi} className="flex flex-col items-center">
+                        <motion.button
+                          whileHover={{ scale: 1.12 }}
+                          whileTap={{ scale: 0.92 }}
+                          onClick={() => vote(pi, oi)}
+                          disabled={answers[pi] !== undefined}
+                          className={`px-10 py-5 rounded-full font-bold text-xl transition ${
+                            answers[pi] === oi
+                              ? "bg-gray-500 text-white"
+                              : "bg-blue-100 text-blue-700"
+                          } ${isWinning ? "ring-2 ring-green-500" : ""}`}
+                        >
+                          {o}
+                        </motion.button>
+                        {maxVotes > 0 && (
+                          <span className="text-sm mt-2 text-gray-700">
+                            {p.votes[oi]} {lang === "en" ? "votes" : "votos"}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </section>
 
-      {/* ===============================
-          RECOMMENDATIONS GRID
-      =============================== */}
-      <RecommendationsGrid articles={allArticles} currentArticle={article} />
-    </div>
+      {/* DEBATE */}
+      <section>
+        <h2 className="text-4xl font-extrabold mb-8">{t.debate}</h2>
+
+        {!anonymous && (
+          <input
+            placeholder={t.name}
+            className="w-full mb-6 p-5 rounded-xl border text-xl"
+          />
+        )}
+
+        <textarea
+          placeholder={t.placeholder}
+          value={comment} // 🟢 bind value
+          onChange={(e) => setComment(e.target.value)}
+          className="w-full p-6 rounded-xl border min-h-[160px] text-xl mb-6"
+        />
+
+        <label className="flex items-center gap-3 mb-8 text-lg">
+          <input
+            type="checkbox"
+            checked={anonymous}
+            onChange={() => setAnonymous(!anonymous)}
+          />
+          {t.anonymous}
+        </label>
+
+        <button
+          disabled={!comment.trim()} // 🟢 solo habilitado si hay comentario
+          className={`px-10 py-5 rounded-full text-xl font-bold transition ${
+            comment.trim()
+              ? "bg-gray-500 text-white"
+              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+          }`}
+        >
+          {t.send}
+        </button>
+      </section>
+
+      {/* RECOMMENDATIONS */}
+      {allArticles && allArticles.length > 0 && (
+        <RecommendationsGrid articles={allArticles} currentArticle={article} />
+      )}
+    </article>
   );
 }

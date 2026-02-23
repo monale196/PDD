@@ -10,14 +10,18 @@ import {
 } from "react";
 import { LanguageContext } from "../app/RootProviders";
 
+/* ============================
+   TYPES
+============================ */
+
 export interface Contenido {
   title: string;
   subtitle: string;
   date: string; // YYYY-MM-DD
-  body: string;
+  body?: string; // opcional
   section: string;
   url: string;
-  txtUrl?: string;
+  txtUrl: string;
   imageUrl?: string;
 }
 
@@ -30,7 +34,8 @@ interface NewsContextType {
     year?: string,
     month?: string,
     day?: string,
-    section?: string
+    section?: string,
+    lang?: string
   ) => Promise<void>;
 }
 
@@ -46,29 +51,9 @@ interface Props {
   children: ReactNode;
 }
 
-// 🔹 Funciones para llamar a la API
-async function listAvailableDays(year: string, month: string) {
-  const res = await fetch(`/api/news?year=${year}&month=${month}`);
-  const text = await res.text(); // nunca res.json()
-  
-  // Aquí parsea los txt que tengas en S3 o simplemente devuelve algo vacío si no hay
-  const files = text.split("\n").filter(Boolean); // ejemplo
-  return files;
-}
-
-async function listNews(year: string, month: string, day: string, lang: string, section: string) {
-  const res = await fetch(`/api/news?year=${year}&month=${month}&day=${day}&section=${section}`);
-  const text = await res.text(); // texto plano, no JSON
-  const files = text.split("\n").filter(Boolean);
-
-  return files
-    .map((key) => {
-      if (key.endsWith(".txt")) return { txtUrl: `https://${process.env.NEXT_PUBLIC_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}` };
-      if (key.endsWith(".jpg")) return { imageUrl: `https://${process.env.NEXT_PUBLIC_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}` };
-      return null;
-    })
-    .filter(Boolean);
-}
+/* ============================
+   PROVIDER
+============================ */
 
 export function NewsProvider({ children }: Props) {
   const { language } = useContext(LanguageContext);
@@ -79,109 +64,64 @@ export function NewsProvider({ children }: Props) {
   const [loading, setLoading] = useState(false);
   const [daysAvailable, setDaysAvailable] = useState<string[]>([]);
 
-  const isLoadingRef = useRef(false);
   const lastLoadKeyRef = useRef<string | null>(null);
 
   async function loadArticles(
     year?: string,
     month?: string,
     day?: string,
-    section?: string
+    section: string = "all",
+    lang?: string
   ) {
     const today = new Date();
     year = year || today.getFullYear().toString();
     month = month || String(today.getMonth() + 1).padStart(2, "0");
     day = day || String(today.getDate()).padStart(2, "0");
+    lang = (lang || language).toLowerCase(); // 🔹 idioma en minúsculas para S3 / API
 
-    const loadKey = `${year}-${month}-${day}-${language}-${section || "all"}`;
-    if (lastLoadKeyRef.current === loadKey || isLoadingRef.current) return;
-
-    isLoadingRef.current = true;
+    const loadKey = `${year}-${month}-${day}-${lang}-${section}`;
+    if (lastLoadKeyRef.current === loadKey) return;
     lastLoadKeyRef.current = loadKey;
+
     setLoading(true);
 
     try {
-      // 🔹 Obtener días disponibles vía API
-      const availableDays = await listAvailableDays(year, month);
+      const query = `/api/news?year=${year}&month=${month}&day=${day}&lang=${lang}${
+        section !== "all" ? `&section=${section}` : ""
+      }`;
+
+      const res = await fetch(query);
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      // Días disponibles: si la API devuelve date, tomamos el día
+      const availableDays = data.date ? [data.date.split("-")[2]] : [];
       setDaysAvailable(availableDays);
 
-      const sectionsToLoad = section
-        ? [section]
-        : [
-            "economia",
-            "empleo",
-            "educacion",
-            "medio_ambiente",
-            "tecnologia",
-            "derechos_democracia",
-            "futuro",
-          ];
+      // Mapeamos artículos
+      const fetchedArticles: Contenido[] = data.articles.map((art: any) => ({
+        title: art.title,
+        subtitle: art.subtitle,
+        date: art.date,
+        section: art.section,
+        url: art.url,
+        txtUrl: art.txtUrl,
+        imageUrl: art.imageUrl,
+      }));
 
-      const sectionResults = await Promise.all(
-        sectionsToLoad.map(async (sec) => {
-          const news = await listNews(year!, month!, day!, language.toLowerCase(), sec);
+      // Organizar principal por sección
+      const mainBySection: Record<string, Contenido> = {};
+      for (const art of fetchedArticles) {
+        if (!mainBySection[art.section]) mainBySection[art.section] = art;
+      }
 
-          const articlesFromSection = await Promise.all(
-            news.map(async (n: any) => {
-              if (!n.txtUrl) return null;
-
-              try {
-                const txtRes = await fetch(n.txtUrl);
-                const txt = await txtRes.text();
-                const lines = txt.split("\n").map((l) => l.trim());
-
-                const title = lines[0]?.replace("**Title:** ", "") || "Sin título";
-                const subtitle = lines[1]?.replace("**Subtitle:** ", "") || "";
-                const dateLine = lines[2]?.replace("**Date:** ", "") || `${day}-${month}-${year}`;
-                const body = lines.slice(3).join("\n");
-
-                let isoDate = `${year}-${month}-${day}`;
-                const parts = dateLine.split(/[-/]/);
-                if (parts.length === 3) {
-                  const [d, m, y] = parts;
-                  isoDate = `${y.padStart(4, "0")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-                }
-
-                const urlPath = `/${sec}/${n.txtUrl?.split("/").pop()?.replace(".txt", "")}`;
-                const imageUrl = n.imageUrl || n.txtUrl.replace("index.txt", "main-image.jpg");
-
-                return {
-                  title,
-                  subtitle,
-                  date: isoDate,
-                  body,
-                  section: sec,
-                  url: urlPath,
-                  txtUrl: n.txtUrl,
-                  imageUrl,
-                } as Contenido;
-
-              } catch (err) {
-                console.error("Error leyendo txt:", n.txtUrl, err);
-                return null;
-              }
-            })
-          );
-
-          return articlesFromSection.filter(Boolean) as Contenido[];
-        })
-      );
-
-      const allArticles = sectionResults.flat();
-
-      const grouped: Record<string, Contenido> = {};
-      allArticles.forEach((a) => {
-        if (!grouped[a.section]) grouped[a.section] = a;
-      });
-
-      setArticles(allArticles);
-      setMainArticlesBySection(grouped);
-
+      setArticles(fetchedArticles);
+      setMainArticlesBySection(mainBySection);
     } catch (err) {
-      console.error("Error cargando noticias:", err);
+      console.error("❌ NewsProvider loadArticles error:", err);
     } finally {
       setLoading(false);
-      isLoadingRef.current = false;
     }
   }
 
