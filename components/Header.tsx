@@ -1,6 +1,5 @@
-
-
 "use client";
+export const dynamic = "force-dynamic";
 
 import React, { useState, useContext, useRef, useEffect } from "react";
 import Link from "next/link";
@@ -16,7 +15,7 @@ import {
   CalendarIcon,
 } from "@heroicons/react/24/outline";
 
-export const dynamic = "force-dynamic";
+
 /* =========================
    CONSTANTES
 ========================= */

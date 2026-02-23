@@ -1,11 +1,10 @@
-
-
 "use client";
+export const dynamic = "force-dynamic";
 
 import { createContext, useContext, useState } from "react";
 
 
-export const dynamic = "force-dynamic";
+
 
 interface SearchContextType {
   keyword: string;

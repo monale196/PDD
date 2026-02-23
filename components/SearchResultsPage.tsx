@@ -1,6 +1,5 @@
-
-
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useContext, useEffect, useMemo, useState } from "react";
 import { NewsContext, Contenido } from "../context/NewsContext";
@@ -9,7 +8,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { LanguageContext } from "../app/RootProviders";
 
-export const dynamic = "force-dynamic";
+
 
 type SortOption = "title-asc" | "title-desc";
 

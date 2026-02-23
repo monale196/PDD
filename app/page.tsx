@@ -1,15 +1,11 @@
-
-
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useContext, useMemo } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { NewsContext } from "../context/NewsContext";
 import { LanguageContext } from "./RootProviders";
-
-export const dynamic = "force-dynamic";
-
 export default function Home() {
   const { language } = useContext(LanguageContext);
   const { articles, mainArticlesBySection, loading } = useContext(NewsContext);

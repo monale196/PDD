@@ -1,11 +1,10 @@
-
-
 "use client";
+export const dynamic = "force-dynamic";
 
 import { createContext, useState, useEffect, ReactNode } from "react";
 import { NewsProvider } from "../context/NewsContext";
 
-export const dynamic = "force-dynamic";
+
 
 /* =======================
    Language Context

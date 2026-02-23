@@ -1,6 +1,5 @@
-export const dynamic = "force-dynamic";
-
 "use client";
+
 
 import { useState, useContext } from "react";
 import { LanguageContext } from "../../RootProviders";

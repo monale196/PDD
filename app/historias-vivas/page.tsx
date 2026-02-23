@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect, useContext, useMemo, createContext } from "react";
 import Link from "next/link";
@@ -7,7 +8,7 @@ import { LanguageContext } from "../RootProviders";
 import { SearchContext } from "@/context/SearchContext";
 import { Merriweather } from "next/font/google";
 
-export const dynamic = "force-dynamic";
+
 
 const merriweather = Merriweather({
   subsets: ["latin"],

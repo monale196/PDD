@@ -1,6 +1,5 @@
-
-
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useContext, useMemo } from "react";
 import { Contenido } from "../context/NewsContext";
@@ -17,7 +16,7 @@ interface RecommendationsGridProps {
 /* =========================
    UTILIDADES
 ========================= */
-export const dynamic = "force-dynamic";
+
 
 // Normaliza texto para comparaciones
 const normalize = (text = "") =>

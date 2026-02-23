@@ -1,12 +1,12 @@
 // components/Footer.tsx
-
-
 "use client";
+export const dynamic = "force-dynamic";
+
 import React from "react";
 
 interface FooterProps extends React.HTMLAttributes<HTMLElement> {}
 
-export const dynamic = "force-dynamic";
+
 
 export default function Footer({ className }: FooterProps) {
   return (

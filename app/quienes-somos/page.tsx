@@ -1,11 +1,12 @@
 "use client";
 
+
 import React, { useContext, useState } from "react";
 import { LanguageContext } from "../RootProviders";
 import { Merriweather } from "next/font/google";
 import { motion, AnimatePresence } from "framer-motion";
 
-export const dynamic = "force-dynamic";
+
 
 const merriweather = Merriweather({ subsets: ["latin"], weight: "400", variable: "--font-merriweather" });
 
