@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+
 
 "use client";
 
@@ -16,6 +16,7 @@ import {
   CalendarIcon,
 } from "@heroicons/react/24/outline";
 
+export const dynamic = "force-dynamic";
 /* =========================
    CONSTANTES
 ========================= */

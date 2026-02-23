@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 "use client";
 
 import React, { useState, useEffect, useContext, useMemo, createContext } from "react";
@@ -8,6 +6,8 @@ import { motion } from "framer-motion";
 import { LanguageContext } from "../RootProviders";
 import { SearchContext } from "@/context/SearchContext";
 import { Merriweather } from "next/font/google";
+
+export const dynamic = "force-dynamic";
 
 const merriweather = Merriweather({
   subsets: ["latin"],

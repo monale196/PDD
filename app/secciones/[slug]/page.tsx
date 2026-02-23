@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 "use client";
 
 import { useContext, useMemo, useEffect } from "react";
@@ -7,6 +5,8 @@ import { useParams, useSearchParams } from "next/navigation";
 import { NewsContext, Contenido } from "../../../context/NewsContext";
 import ArticleView from "../../../components/ArticleView";
 import { SearchContext, LanguageContext } from "../../../app/RootProviders";
+
+export const dynamic = "force-dynamic";
 
 export default function SectionPage() {
   const params = useParams();

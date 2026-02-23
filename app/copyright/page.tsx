@@ -1,10 +1,12 @@
-export const dynamic = "force-dynamic";
+
 
 "use client";
 
 import { useContext } from "react";
 import { LanguageContext } from "@/app/RootProviders";
 import { Merriweather } from "next/font/google";
+
+export const dynamic = "force-dynamic";
 
 const merriweather = Merriweather({
   subsets: ["latin"],

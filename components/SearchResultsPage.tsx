@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+
 
 "use client";
 
@@ -8,6 +8,8 @@ import { SearchContext } from "../context/SearchContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { LanguageContext } from "../app/RootProviders";
+
+export const dynamic = "force-dynamic";
 
 type SortOption = "title-asc" | "title-desc";
 

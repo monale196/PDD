@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+
 
 "use client";
 
@@ -17,6 +17,7 @@ interface RecommendationsGridProps {
 /* =========================
    UTILIDADES
 ========================= */
+export const dynamic = "force-dynamic";
 
 // Normaliza texto para comparaciones
 const normalize = (text = "") =>

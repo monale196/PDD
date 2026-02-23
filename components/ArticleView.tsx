@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+
 
 "use client";
 
@@ -6,6 +6,9 @@ import { useEffect, useState, useContext } from "react";
 import { motion } from "framer-motion";
 import RecommendationsGrid from "./RecommendationsGrid";
 import { LanguageContext } from "../app/RootProviders";
+
+
+export const dynamic = "force-dynamic";
 
 /* ───────── ICONOS FLASHCARDS ───────── */
 const iconMap: Record<string, string> = {

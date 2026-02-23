@@ -1,4 +1,3 @@
-export const dynamic = "force-dynamic";
 
 "use client";
 
@@ -15,6 +14,8 @@ import { LanguageContext } from "../app/RootProviders";
 /* ============================
    TYPES
 ============================ */
+
+
 
 export interface Contenido {
   title: string;
