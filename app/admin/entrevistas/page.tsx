@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useContext } from "react";
-import { LanguageContext } from "../../layout"; // Ajusta según tu estructura
+import { LanguageContext } from "../../RootsProviders";
 import axios from "axios";
+
+
 
 export default function AdminEntrevistas() {
   const { language } = useContext(LanguageContext);
