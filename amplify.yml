@@ -1,0 +1,22 @@
+version: 1.0
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm install
+    build:
+      commands:
+        - npm run build
+  artifacts:
+    # Asegúrate de que Amplify encuentra los artefactos generados
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+
+# Si usas SSR, esto puede ser útil
+server:
+  memory: 4GB
+  cpus: 2
