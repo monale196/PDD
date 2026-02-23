@@ -3,25 +3,21 @@
 import { useContext, useMemo } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { NewsContext, Contenido } from "../context/NewsContext";
+import { NewsContext } from "../context/NewsContext";
 import { LanguageContext } from "./RootProviders";
-
-/* =========================
-   CONSTANTES
-========================= */
-
-const SECTIONS = [
-  { slug: "economia", nameES: "Economía", nameEN: "Economy", color: "bg-[#0a3d62]" },
-  { slug: "empleo", nameES: "Empleo", nameEN: "Employment", color: "bg-[#165788]" },
-  { slug: "educacion", nameES: "Educación", nameEN: "Education", color: "bg-[#107896]" },
-  { slug: "medio_ambiente", nameES: "Medio Ambiente", nameEN: "Environment", color: "bg-[#0b7285]" },
-  { slug: "tecnologia", nameES: "Tecnología", nameEN: "Technology", color: "bg-[#0d9488]" },
-  { slug: "derechos_democracia", nameES: "Derechos", nameEN: "Rights", color: "bg-[#14b8a6]" },
-];
 
 export default function Home() {
   const { language } = useContext(LanguageContext);
   const { articles, mainArticlesBySection, loading } = useContext(NewsContext);
+
+  const sections = [
+    { slug: "economia", nameES: "España", nameEN: "Spain", color: "bg-[#0a3d62]" },
+    { slug: "empleo", nameES: "Mundo", nameEN: "World", color: "bg-[#165788]" },
+    { slug: "educacion", nameES: "Opinión", nameEN: "Opinion", color: "bg-[#107896]" },
+    { slug: "medio_ambiente", nameES: "Empresa", nameEN: "Business", color: "bg-[#0b7285]" },
+    { slug: "tecnologia", nameES: "Tecnología", nameEN: "Technology", color: "bg-[#0d9488]" },
+    { slug: "derechos_democracia", nameES: "Sociedad", nameEN: "Society", color: "bg-[#14b8a6]" },
+  ];
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -30,12 +26,23 @@ export default function Home() {
       .toUpperCase()} ${d.getFullYear().toString().slice(-2)}`;
   };
 
-  // ✅ Artículos principales por sección
-  const sectionArticles = useMemo(() => {
-    return SECTIONS.map(sec => mainArticlesBySection[sec.slug]).filter(Boolean) as Contenido[];
-  }, [mainArticlesBySection]);
+  // 🔹 Loading mientras llegan los artículos
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh] text-gray-500">
+        Cargando noticias...
+      </div>
+    );
+  }
 
-  // ✅ Otros artículos "Para entender mejor el mundo"
+  // 🔹 Artículos principales por sección
+  const sectionArticles = useMemo(() => {
+    return sections
+      .map((sec) => mainArticlesBySection[sec.slug])
+      .filter(Boolean) as typeof articles;
+  }, [mainArticlesBySection, sections]);
+
+  // 🔹 Otros artículos "Para entender mejor el mundo"
   const otherArticles = useMemo(() => {
     const usedUrls = new Set(sectionArticles.map(a => a.url));
     return articles.filter(a => !usedUrls.has(a.url)).slice(0, 2);
@@ -47,24 +54,16 @@ export default function Home() {
         .replace(/^(\*?\s*)?(Subtítulo|Subtitle):/i, "")
         .trim() || "";
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh] text-gray-500">
-        {language === "ES" ? "Cargando noticias…" : "Loading news…"}
-      </div>
-    );
-  }
-
   return (
     <div className="bg-[var(--color-background)] min-h-screen px-4 md:px-16 py-12">
       <h1 className="text-3xl md:text-4xl font-bold mb-12 text-[var(--color-foreground)]">
         {language === "ES" ? "Últimas Noticias" : "Latest News"}
       </h1>
 
-      {/* ===================== Secciones principales ===================== */}
+      {/* ================= Secciones principales ================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-        {sectionArticles.map(article => {
-          const section = SECTIONS.find(s => s.slug === article.section);
+        {sectionArticles.map((article) => {
+          const section = sections.find(s => s.slug === article.section);
           if (!section) return null;
 
           const title = cleanText(article.title) || "Sin título";
@@ -104,7 +103,7 @@ export default function Home() {
         })}
       </div>
 
-      {/* ===================== Otros artículos ===================== */}
+      {/* ================= Para entender mejor el mundo ================= */}
       {otherArticles.length > 0 && (
         <div className="mt-16">
           <h2 className="text-2xl md:text-3xl font-bold mb-6 text-[var(--color-foreground)]">
@@ -112,7 +111,7 @@ export default function Home() {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
-            {otherArticles.map(article => {
+            {otherArticles.map((article) => {
               const title = cleanText(article.title) || "Sin título";
               const description = cleanText(article.subtitle).split("\n").slice(0, 3).join(" ") || "";
               const image = article.imageUrl || "https://via.placeholder.com/600x400?text=No+Image";
