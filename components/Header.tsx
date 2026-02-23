@@ -22,9 +22,9 @@ const SLUGS: Record<string, string> = {
   Economia: "economia",
   Empleo: "empleo",
   Educacion: "educacion",
-  MedioAmbiente: "medio-ambiente",
+  MedioAmbiente: "medio_ambiente",
   Tecnologia: "tecnologia",
-  Derechos: "derechos",
+  Derechos: "derechos_democracia",
   Futuro: "futuro",
   "Historias-Vivas": "historias-vivas",
 };
@@ -63,10 +63,6 @@ const LABELS: Record<string, Record<string, string>> = {
     searchPlaceholder: "Search...",
   },
 };
-
-/* =========================
-   COMPONENTE
-========================= */
 
 export default function Header() {
   const router = useRouter();
@@ -136,27 +132,18 @@ export default function Header() {
     return language === "ES" ? sec : map[sec] || sec;
   };
 
-  /* =========================
-     🔥 VOLVER A HOME (con recarga completa de artículos)
-========================= */
   const goHome = async () => {
-    clearSearch(); // limpia keyword y dateFilter
-    await loadArticles(undefined, undefined, undefined, "all"); // fuerza carga de todas las secciones
-    router.push("/"); // navega a home solo después de cargar
+    clearSearch();
+    await loadArticles(undefined, undefined, undefined, "all");
+    router.push("/"); 
   };
-
-  /* =========================
-     RENDER
-========================= */
 
   return (
     <header
       ref={headerRef}
       className="sticky top-0 z-50 w-full bg-[var(--color-background)] shadow-sm"
     >
-      {/* ================= LINEA SUPERIOR ================= */}
       <div className="w-full grid grid-cols-3 items-center py-3 px-8">
-        {/* IZQUIERDA */}
         <div className="flex items-center gap-6 justify-start">
           {/* MENU */}
           <div className="relative">
@@ -265,7 +252,7 @@ export default function Header() {
                 >
                   <input
                     type="date"
-                    min="2026-02-21"
+                    min="2026-02-23"
                     value={selectedDate.toISOString().split("T")[0]}
                     onChange={(e) => setSelectedDate(new Date(e.target.value))}
                     className="w-full border rounded px-2 py-1"
@@ -302,8 +289,12 @@ export default function Header() {
             <HomeIcon className="w-6 h-6" />
           </button>
 
+          {/* 🔹 CAMBIO DE IDIOMA */}
           <button
-            onClick={() => setLanguage(language === "ES" ? "EN" : "ES")}
+            onClick={() => {
+              const nextLang = language === "ES" ? "EN" : "ES";
+              setLanguage(nextLang); // 🚀 Solo cambia el contexto
+            }}
             className="px-3 py-1 bg-[var(--color-accent)] text-white rounded font-semibold text-sm"
           >
             {language}
