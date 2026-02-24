@@ -11,15 +11,6 @@ export default function Home() {
   const { dateFilter } = useContext(SearchContext); // ← 🔹 Fecha seleccionada en Header
   const { articles, mainArticlesBySection, loading, loadArticles } = useContext(NewsContext);
 
-  // 🔹 Dispara recarga cuando cambia la fecha en el Header (sin tocar Header)
-  useEffect(() => {
-    // Si hay dateFilter, pedimos al NewsContext cargar artículos de esa fecha.
-    // Firma deducida de tu Header/Context: loadArticles(undefined, undefined, date?, "all")
-    if (typeof loadArticles === "function") {
-      loadArticles(undefined, undefined, dateFilter || undefined, "all");
-    }
-  }, [dateFilter, loadArticles]);
-
   // 🔹 Mapa de traducción de secciones
   const sectionNames: Record<string, { es: string; en: string; color: string }> = {
     economia: { es: "Economía", en: "Economy", color: "bg-[#0a3d62]" },
@@ -83,6 +74,24 @@ export default function Home() {
 
     return "";
   };
+
+  // ==============================
+  // 🔹 NUEVO: Fecha efectiva para cargar artículos
+  // - Si el usuario eligió una fecha (YYYY-MM-DD), se usa.
+  // - Si no, se usa el día actual en local (YYYY-MM-DD).
+  // ==============================
+  const effectiveDate = useMemo(() => {
+    const isYmd = typeof dateFilter === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateFilter);
+    return isYmd ? dateFilter! : toLocalDateKey(new Date());
+  }, [dateFilter]);
+
+  // 🔹 Dispara recarga cuando cambia la fecha efectiva (sin tocar Header)
+  useEffect(() => {
+    if (typeof loadArticles === "function") {
+      // Firma deducida: loadArticles(undefined, undefined, date?, "all")
+      loadArticles(undefined, undefined, effectiveDate, "all");
+    }
+  }, [effectiveDate, loadArticles]);
 
   // 🔹 Secciones únicas a partir de los artículos
   const uniqueSections = useMemo(() => {
@@ -157,7 +166,7 @@ export default function Home() {
       { day: "2-digit", month: "long", year: "numeric" }
     );
 
-  // 🚫 IMPORTANTE: Eliminamos cualquier mensaje de "No hay noticias"
+  // 🚫 IMPORTANTE: Sin mensajes de "No hay noticias"
   // Siempre mostramos contenido gracias a los fallbacks por sección/otros.
 
   return (
