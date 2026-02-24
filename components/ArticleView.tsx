@@ -5,9 +5,6 @@ import { motion } from "framer-motion";
 import RecommendationsGrid from "./RecommendationsGrid";
 import { LanguageContext } from "../app/RootProviders";
 
-
-
-
 /* ───────── ICONOS FLASHCARDS ───────── */
 const iconMap: Record<string, string> = {
   Economía: "/icons/Economy.png",
@@ -57,7 +54,7 @@ type Poll = {
 
 export default function ArticleView({ article, allArticles }: any) {
   const { language } = useContext(LanguageContext);
-  const lang = language.toLowerCase() as "es" | "en";
+  const lang = (language || "es").toLowerCase() as "es" | "en";
   const t = labels[lang];
 
   const [bullets, setBullets] = useState<string[]>([]);
@@ -107,46 +104,82 @@ export default function ArticleView({ article, allArticles }: any) {
         let currentFlashcard: Flashcard | null = null;
         let currentPoll: Poll | null = null;
 
+        // Opciones por defecto según idioma
+        const yesNoByLang = lang === "en" ? ["Yes", "No"] : ["Sí", "No"];
+
+        // Helpers para cerrar tarjetas/encuestas respetando tu lógica
+        const flushCurrentFlashcard = () => {
+          if (currentFlashcard) {
+            f.push(currentFlashcard);
+            currentFlashcard = null;
+          }
+        };
+
+        const flushCurrentPoll = () => {
+          if (currentPoll) {
+            // Si no hay opciones definidas, ponemos Sí/No (o Yes/No)
+            if (!currentPoll.options || currentPoll.options.length === 0) {
+              currentPoll.options = [...yesNoByLang];
+              currentPoll.votes = Array(currentPoll.options.length).fill(0);
+            }
+            p.push(currentPoll);
+            currentPoll = null;
+          }
+        };
+
         lines.forEach((raw) => {
           const line = raw.trim();
           if (!line) return;
 
-          /* CAMBIO DE SECCIÓN */
+          /* CAMBIO DE SECCIÓN con --- */
           if (line.startsWith("---")) {
-            if (currentFlashcard) {
-              f.push(currentFlashcard);
-              currentFlashcard = null;
-            }
-            if (currentPoll) {
-              p.push(currentPoll);
-              currentPoll = null;
-            }
+            // Cierre de elementos abiertos antes de cambiar de sección
+            flushCurrentFlashcard();
+            flushCurrentPoll();
             section = line;
+            return;
+          }
+
+          /* NUEVO: admitir etiquetas "Bullets:", "Flashcards:", "Polls:" */
+          const simpleSectionMatch = line.match(
+            /^(Bullets?|Flashcards?|Polls?)\s*:\s*$/i
+          );
+          if (simpleSectionMatch) {
+            flushCurrentFlashcard();
+            flushCurrentPoll();
+
+            const label = simpleSectionMatch[1].toLowerCase();
+            if (label.startsWith("bullet")) section = "---BULLETS---";
+            else if (label.startsWith("flashcard")) section = "---FLASHCARDS---";
+            else if (label.startsWith("poll")) section = "---POLLS---";
             return;
           }
 
           /* BULLETS */
           if (section === "---BULLETS---" && line.startsWith("-")) {
             b.push(line.replace(/^-\s*/, ""));
+            return;
           }
 
           /* FLASHCARDS */
           if (section === "---FLASHCARDS---") {
-            // 1. Economía - Texto o Economía: Texto o Economía - Texto
-            const flashcardMatch = line.match(/^\d*\.\s*([^-:]+)[-:]?\s*(.*)$/);
-            if (flashcardMatch) {
-              if (currentFlashcard) f.push(currentFlashcard);
+            // 1. Economía - Texto  |  1) Economía: Texto  |  Economía: Texto
+            const flashcardMatch = line.match(/^\d*[\.\)]?\s*([^-:]+)[-:]?\s*(.*)$/);
+            if (flashcardMatch && (flashcardMatch[1] || flashcardMatch[2])) {
+              flushCurrentFlashcard();
               currentFlashcard = {
-                title: flashcardMatch[1].trim(),
-                summary: flashcardMatch[2].trim(),
+                title: (flashcardMatch[1] || "").trim(),
+                summary: (flashcardMatch[2] || "").trim(),
               };
               return;
             }
 
-            // NUEVO FORMATO: solo Título: Texto (como el ejemplo que me pasaste)
-            const simpleMatch = line.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ ]+)\s*[:]\s*(.*)$/);
+            // Formato simple extra (Título: Texto)
+            const simpleMatch = line.match(
+              /^([A-Za-zÁÉÍÓÚáéíóúñÑ ]+)\s*[:]\s*(.*)$/
+            );
             if (simpleMatch) {
-              if (currentFlashcard) f.push(currentFlashcard);
+              flushCurrentFlashcard();
               currentFlashcard = {
                 title: simpleMatch[1].trim(),
                 summary: simpleMatch[2].trim(),
@@ -154,43 +187,54 @@ export default function ArticleView({ article, allArticles }: any) {
               return;
             }
 
-            // Continúa agregando texto si ya existe (para multilinea)
+            // Multilínea
             if (currentFlashcard) {
               currentFlashcard.summary +=
                 (currentFlashcard.summary ? " " : "") + line;
             }
+            return;
           }
 
           /* POLLS */
           if (section === "---POLLS---") {
-            // Detecta formato: 1. Pregunta Sí/No o 1) Pregunta
+            // Detecta formato numerado: "1. Pregunta" o "1) Pregunta"
             const pollMatch = line.match(/^\d+[\.\)]\s*(.*)$/);
             if (pollMatch) {
-              if (currentPoll) p.push(currentPoll);
+              // Cerramos la encuesta previa (aplicando Sí/No si no hay opciones)
+              flushCurrentPoll();
 
               let question = pollMatch[1].trim();
+
+              // Inline Sí/No o Yes/No (admite acentuado y sin acento)
               const inlineYesNo = question.match(/\b(Sí\/No|Si\/No|Yes\/No)\b/i);
               if (inlineYesNo) {
                 const options = inlineYesNo[0].split("/").map((o) => o.trim());
                 question = question.replace(inlineYesNo[0], "").trim();
-                currentPoll = { question, options, votes: Array(options.length).fill(0) };
+                currentPoll = {
+                  question,
+                  options,
+                  votes: Array(options.length).fill(0),
+                };
               } else {
+                // Dejamos sin opciones por ahora; si no aparecen con "-", se pondrá Sí/No al cerrar
                 currentPoll = { question, options: [], votes: [] };
               }
               return;
             }
 
-            // Detecta opciones con guion -
+            // Opciones con guion "-"
             if (currentPoll && line.startsWith("-")) {
               const option = line.replace(/^-\s*/, "");
               currentPoll.options.push(option);
               currentPoll.votes.push(0);
+              return;
             }
           }
         });
 
-        if (currentFlashcard) f.push(currentFlashcard);
-        if (currentPoll) p.push(currentPoll);
+        // Cierre al final del archivo
+        flushCurrentFlashcard();
+        flushCurrentPoll();
 
         setBullets(b);
         setFlashcards(f);
@@ -209,9 +253,7 @@ export default function ArticleView({ article, allArticles }: any) {
         i === pollIndex
           ? {
               ...poll,
-              votes: poll.votes.map((v, j) =>
-                j === optionIndex ? v + 1 : v
-              ),
+              votes: poll.votes.map((v, j) => (j === optionIndex ? v + 1 : v)),
             }
           : poll
       )

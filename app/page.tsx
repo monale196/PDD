@@ -1,16 +1,17 @@
 "use client";
 
-
 import { useContext, useMemo } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { NewsContext } from "../context/NewsContext";
-import { LanguageContext } from "./RootProviders";
+import { LanguageContext, SearchContext } from "./RootProviders";
+
 export default function Home() {
   const { language } = useContext(LanguageContext);
+  const { dateFilter } = useContext(SearchContext); // ← 🔹 Nos conectamos al filtro de fecha del Header
   const { articles, mainArticlesBySection, loading } = useContext(NewsContext);
 
-  // 🔹 Map de traducción de secciones
+  // 🔹 Mapa de traducción de secciones
   const sectionNames: Record<string, { es: string; en: string; color: string }> = {
     economia: { es: "Economía", en: "Economy", color: "bg-[#0a3d62]" },
     empleo: { es: "Empleo", en: "Employment", color: "bg-[#165788]" },
@@ -32,15 +33,16 @@ export default function Home() {
   };
 
   const cleanText = (text?: string) =>
-    text?.replace(/^(\*?\s*)?(Título|Title):/i, "")
-        .replace(/^(\*?\s*)?(Subtítulo|Subtitle):/i, "")
-        .trim() || "";
+    text
+      ?.replace(/^(\*?\s*)?(Título|Title):/i, "")
+      .replace(/^(\*?\s*)?(Subtítulo|Subtitle):/i, "")
+      .trim() || "";
 
-  // 🔹 Hooks siempre antes de cualquier return
+  // 🔹 Secciones únicas a partir de los artículos que ya tenemos
   const uniqueSections = useMemo(() => {
-    const slugs = Array.from(new Set(articles.map(a => a.section)));
+    const slugs = Array.from(new Set(articles.map((a) => a.section)));
     return slugs
-      .map(slug => {
+      .map((slug) => {
         const info = sectionNames[slug];
         if (!info) return null;
         return { slug, ...info };
@@ -48,16 +50,34 @@ export default function Home() {
       .filter(Boolean) as { slug: string; es: string; en: string; color: string }[];
   }, [articles]);
 
+  // 🔹 NUEVO: Filtrado por fecha según Header (SearchContext)
+  // Si hay dateFilter (YYYY-MM-DD), nos quedamos con los artículos de ese día.
+  const filteredArticles = useMemo(() => {
+    if (!dateFilter) return articles;
+    return articles.filter((a) => {
+      // a.date puede ser "YYYY-MM-DD" o ISO; nos quedamos con la parte de fecha (YYYY-MM-DD)
+      const aDate = a?.date ? new Date(a.date).toISOString().split("T")[0] : "";
+      return aDate === dateFilter;
+    });
+  }, [articles, dateFilter]);
+
+  // 🔹 Para cada sección, tomamos el "principal" del día filtrado si existe;
+  // si no, usamos el mainArticlesBySection original (comportamiento anterior).
   const sectionArticles = useMemo(() => {
     return uniqueSections
-      .map(sec => mainArticlesBySection[sec.slug])
+      .map((sec) => {
+        const firstOfDay = filteredArticles.find((a) => a.section === sec.slug);
+        return firstOfDay || mainArticlesBySection[sec.slug];
+      })
       .filter(Boolean) as typeof articles;
-  }, [mainArticlesBySection, uniqueSections]);
+  }, [filteredArticles, mainArticlesBySection, uniqueSections]);
 
+  // 🔹 Otros artículos: de la lista filtrada, eliminando los ya usados en secciones principales
   const otherArticles = useMemo(() => {
-    const usedUrls = new Set(sectionArticles.map(a => a.url));
-    return articles.filter(a => !usedUrls.has(a.url)).slice(0, 2);
-  }, [articles, sectionArticles]);
+    const usedUrls = new Set(sectionArticles.map((a) => a.url));
+    const pool = filteredArticles.length > 0 ? filteredArticles : articles;
+    return pool.filter((a) => !usedUrls.has(a.url)).slice(0, 2);
+  }, [articles, filteredArticles, sectionArticles]);
 
   if (loading) {
     return (
@@ -67,21 +87,37 @@ export default function Home() {
     );
   }
 
+  // 🔹 Texto auxiliar bajo el título cuando hay filtro de fecha activo
+  const dateBadge =
+    dateFilter &&
+    new Date(dateFilter).toLocaleDateString(
+      language === "ES" ? "es-ES" : "en-GB",
+      { day: "2-digit", month: "long", year: "numeric" }
+    );
+
   return (
     <div className="bg-[var(--color-background)] min-h-screen px-4 md:px-16 py-12">
-      <h1 className="text-3xl md:text-4xl font-bold mb-12 text-[var(--color-foreground)]">
+      <h1 className="text-3xl md:text-4xl font-bold text-[var(--color-foreground)]">
         {language === "ES" ? "Últimas Noticias" : "Latest News"}
       </h1>
 
+      {dateFilter && (
+        <p className="mt-2 text-sm text-[var(--color-gray)]">
+          {language === "ES" ? "Filtrado por fecha: " : "Filtered by date: "}
+          <span className="font-semibold">{dateBadge}</span>
+        </p>
+      )}
+
       {/* ================= Secciones principales ================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-        {sectionArticles.map(article => {
-          const section = uniqueSections.find(s => s.slug === article.section);
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8 mb-12">
+        {sectionArticles.map((article) => {
+          const section = uniqueSections.find((s) => s.slug === article.section);
           if (!section) return null;
 
           const title = cleanText(article.title) || "Sin título";
           const description = cleanText(article.subtitle);
-          const image = article.imageUrl || "https://via.placeholder.com/600x400?text=No+Image";
+          const image =
+            article.imageUrl || "https://via.placeholder.com/600x400?text=No+Image";
           const date = article.date ? formatDate(article.date) : "";
 
           const href = `/secciones/${article.section}`; // 🚀 sin idioma
@@ -92,7 +128,9 @@ export default function Home() {
               whileHover={{ scale: 1.03 }}
               className="bg-[var(--color-card)] rounded-2xl shadow-lg overflow-hidden flex flex-col transition"
             >
-              <div className={`flex justify-between items-center px-4 py-2 ${section.color} text-white font-medium rounded-t-2xl`}>
+              <div
+                className={`flex justify-between items-center px-4 py-2 ${section.color} text-white font-medium rounded-t-2xl`}
+              >
                 <span>{language === "ES" ? section.es : section.en}</span>
                 <span className="text-xs">{date}</span>
               </div>
@@ -102,12 +140,18 @@ export default function Home() {
               </div>
 
               <div className="p-6 flex flex-col flex-1">
-                <h2 className="text-xl font-bold text-[var(--color-foreground)] leading-snug">{title}</h2>
-                <p className="mt-2 text-sm text-[var(--color-gray)] line-clamp-3 flex-1">{description}</p>
+                <h2 className="text-xl font-bold text-[var(--color-foreground)] leading-snug">
+                  {title}
+                </h2>
+                <p className="mt-2 text-sm text-[var(--color-gray)] line-clamp-3 flex-1">
+                  {description}
+                </p>
 
                 <div className="mt-4 flex justify-end">
                   <Link href={href}>
-                    <span className={`inline-block px-4 py-2 rounded-full text-white text-sm font-medium ${section.color} hover:opacity-90 transition`}>
+                    <span
+                      className={`inline-block px-4 py-2 rounded-full text-white text-sm font-medium ${section.color} hover:opacity-90 transition`}
+                    >
                       {language === "ES" ? "Leer más" : "Discover more"}
                     </span>
                   </Link>
@@ -122,28 +166,40 @@ export default function Home() {
       {otherArticles.length > 0 && (
         <div className="mt-16">
           <h2 className="text-2xl md:text-3xl font-bold mb-6 text-[var(--color-foreground)]">
-            {language === "ES" ? "Para entender mejor el mundo" : "To better understand the world"}
+            {language === "ES"
+              ? "Para entender mejor el mundo"
+              : "To better understand the world"}
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
-            {otherArticles.map(article => {
+            {otherArticles.map((article) => {
               const title = cleanText(article.title) || "Sin título";
-              const description = cleanText(article.subtitle).split("\n").slice(0,3).join(" ") || "";
-              const image = article.imageUrl || "https://via.placeholder.com/600x400?text=No+Image";
+              const description =
+                cleanText(article.subtitle).split("\n").slice(0, 3).join(" ") || "";
+              const image =
+                article.imageUrl || "https://via.placeholder.com/600x400?text=No+Image";
               const date = article.date ? formatDate(article.date) : "";
 
               const href = `/secciones/${article.section}`; // 🚀 sin idioma
 
               return (
-                <motion.div key={article.url} whileHover={{ scale: 1.02 }} className="bg-[var(--color-card)] rounded-2xl shadow-md overflow-hidden flex flex-col transition">
+                <motion.div
+                  key={article.url}
+                  whileHover={{ scale: 1.02 }}
+                  className="bg-[var(--color-card)] rounded-2xl shadow-md overflow-hidden flex flex-col transition"
+                >
                   <Link href={href} className="flex flex-col flex-1">
                     <div className="w-full h-40 overflow-hidden">
                       <img src={image} alt={title} className="w-full h-full object-cover" />
                     </div>
 
                     <div className="p-4 flex flex-col flex-1 justify-between min-h-[300px]">
-                      <h3 className="text-lg font-semibold text-[var(--color-foreground)] leading-snug">{title}</h3>
-                      <p className="mt-1 text-sm text-[var(--color-gray)] line-clamp-3">{description}</p>
+                      <h3 className="text-lg font-semibold text-[var(--color-foreground)] leading-snug">
+                        {title}
+                      </h3>
+                      <p className="mt-1 text-sm text-[var(--color-gray)] line-clamp-3">
+                        {description}
+                      </p>
 
                       <div className="mt-2 flex justify-end">
                         <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-accent)] text-white text-sm font-medium hover:opacity-90 transition">
