@@ -1,22 +1,33 @@
-version: 1.0
-frontend:
-  phases:
-    preBuild:
-      commands:
-        - npm install
-    build:
-      commands:
-        - npm run build
-  artifacts:
-    # Asegúrate de que Amplify encuentra los artefactos generados
-    baseDirectory: .next
-    files:
-      - '**/*'
-  cache:
-    paths:
-      - node_modules/**/*
-
-# Si usas SSR, esto puede ser útil
-server:
-  memory: 4GB
-  cpus: 2
+version: 1
+applications:
+  - appRoot: .
+    env:
+      variables:
+        NODE_ENV: production
+        NEXT_TELEMETRY_DISABLED: 1
+        # Las credenciales NO se ponen aquí. Añádelas en Amplify Console > App settings > Environment variables
+        # AMPLIFY_AWS_REGION, AMPLIFY_AWS_ACCESS_KEY_ID, AMPLIFY_AWS_SECRET_ACCESS_KEY
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - node -v
+            - npm -v
+            - npm ci
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+    # No necesitas rewrites especiales: Next.js 16 en Amplify maneja App Router y /api automáticamente.
+    # Solo añadimos headers para evitar cachés agresivos del navegador en despliegues iniciales.
+    customHeaders:
+      - pattern: '**/*'
+        headers:
+          - key: 'Cache-Control'
+            value: 'no-cache'
