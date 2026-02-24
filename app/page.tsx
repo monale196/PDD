@@ -16,7 +16,7 @@ export default function Home() {
     // Si el usuario selecciona una fecha, pedimos al NewsContext cargar artículos de ESA fecha.
     // Si NO hay fecha seleccionada, no hacemos nada y todo queda como se mostraba antes.
     if (typeof loadArticles === "function" && dateFilter) {
-      // Firma deducida de tu Header/Context: loadArticles(undefined, undefined, date?, "all")
+      // Firma deducida: loadArticles(undefined, undefined, date?, "all")
       loadArticles(undefined, undefined, dateFilter, "all");
     }
   }, [dateFilter, loadArticles]);
@@ -85,17 +85,30 @@ export default function Home() {
     return "";
   };
 
-  // 🔹 Secciones únicas a partir de los artículos
+  // ==============================
+  // 🔹 Secciones únicas con FALLOVER REAL
+  // - Si hay artículos (sea de hoy o del fetch por fecha), usamos sus secciones.
+  // - Si articles está vacío (p.ej. fetch por 23 devolvió 0), caemos a las claves
+  //   de mainArticlesBySection para "mostrar como se solía mostrar".
+  // ==============================
   const uniqueSections = useMemo(() => {
-    const slugs = Array.from(new Set(articles.map((a) => a.section)));
-    return slugs
+    // 1) Preferir las secciones presentes en `articles`
+    const fromArticles = Array.from(new Set(articles.map((a) => a.section)));
+
+    // 2) Si no hay, usar las secciones disponibles en `mainArticlesBySection`
+    const fallbackSlugs =
+      fromArticles.length > 0
+        ? fromArticles
+        : Object.keys(mainArticlesBySection || {});
+
+    return fallbackSlugs
       .map((slug) => {
         const info = sectionNames[slug];
         if (!info) return null;
         return { slug, ...info };
       })
       .filter(Boolean) as { slug: string; es: string; en: string; color: string }[];
-  }, [articles]);
+  }, [articles, mainArticlesBySection]);
 
   // ==============================
   // 🔹 Filtrado por fecha (fallback local si el servidor no filtró)
@@ -103,8 +116,7 @@ export default function Home() {
   const filteredArticles = useMemo(() => {
     if (!dateFilter) return articles;
     const wanted = dateFilter; // "YYYY-MM-DD" (viene del Header)
-    const result = articles.filter((a) => getArticleDateKey(a?.date) === wanted);
-    return result;
+    return articles.filter((a) => getArticleDateKey(a?.date) === wanted);
   }, [articles, dateFilter]);
 
   // ==============================
@@ -132,15 +144,15 @@ export default function Home() {
   }, [filteredArticles, mainArticlesBySection, uniqueSections, dateFilter]);
 
   // ==============================
-  // 🔹 Otros artículos con fallback SIEMPRE (nunca vacío si hay artículos)
-  // - Si hay filtro y el set filtrado está vacío, cae a los artículos actuales.
+  // 🔹 Otros artículos con fallback SIEMPRE
   // ==============================
   const otherArticles = useMemo(() => {
     const usedUrls = new Set(sectionArticles.map((a) => a.url));
     const pool =
-      dateFilter && filteredArticles.length > 0 ? filteredArticles : articles;
-    return pool.filter((a) => !usedUrls.has(a.url)).slice(0, 2);
-  }, [articles, filteredArticles, sectionArticles, dateFilter]);
+      dateFilter && filteredArticles.length > 0 ? filteredArticles : articles.length > 0 ? articles : Object.values(mainArticlesBySection || {});
+    // Nota: añadimos un micro-fallback adicional a mainArticlesBySection si articles está vacío
+    return (pool as typeof articles).filter((a) => a && !usedUrls.has(a.url)).slice(0, 2);
+  }, [articles, filteredArticles, sectionArticles, dateFilter, mainArticlesBySection]);
 
   if (loading) {
     return (
@@ -158,7 +170,7 @@ export default function Home() {
       { day: "2-digit", month: "long", year: "numeric" }
     );
 
-  // 🚫 IMPORTANTE: Eliminamos cualquier mensaje de "No hay noticias"
+  // 🚫 IMPORTANTE: Sin mensajes de "No hay noticias"
   // Siempre mostramos contenido gracias a los fallbacks por sección/otros.
 
   return (
