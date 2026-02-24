@@ -13,7 +13,7 @@ applications:
           commands:
             - node -v
             - npm -v
-            - npm ci
+            - npm install
         build:
           commands:
             - npm run build
