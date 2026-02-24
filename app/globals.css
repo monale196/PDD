@@ -1,7 +1,6 @@
 /* app/globals.css */
-@import "tailwindcss";
 
-/* Variables personalizadas */
+/* tus estilos personalizados SOLO aquí */
 :root {
   --color-background: #f9fafc;
   --color-foreground: #0a1b2e;
