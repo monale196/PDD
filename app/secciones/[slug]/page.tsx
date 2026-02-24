@@ -1,12 +1,10 @@
 "use client";
 
-
 import { useContext, useMemo, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { NewsContext, Contenido } from "../../../context/NewsContext";
 import ArticleView from "../../../components/ArticleView";
 import { SearchContext, LanguageContext } from "../../../app/RootProviders";
-
 
 export default function SectionPage() {
   const params = useParams();
@@ -49,9 +47,7 @@ export default function SectionPage() {
 
     // 🔹 Si hay query "article", busca el artículo exacto
     if (queryArticleSlug) {
-      return articles.find((a) =>
-        a.url.endsWith(`/${queryArticleSlug}`)
-      );
+      return articles.find((a) => a.url.endsWith(`/${queryArticleSlug}`));
     }
 
     // 🔹 Si hay filtro de fecha, devuelve el primero
@@ -77,7 +73,8 @@ export default function SectionPage() {
       )}
 
       {!loading && mainArticle && (
-        <ArticleView article={mainArticle} language={lang} />
+        // ⬇️ RESPETANDO Opción A: NO pasamos language; ArticleView usa el contexto internamente
+        <ArticleView article={mainArticle} /* allArticles={articles} */ />
       )}
 
       {!loading && !mainArticle && (
