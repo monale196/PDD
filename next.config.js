@@ -2,8 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // ⚠️ NO necesitamos "standalone"; Amplify ejecuta serverless automáticamente
-  // output: "standalone",
+  // ⚠️ Desactivar Turbopack para que Tailwind funcione en Amplify
+  experimental: {
+    turbo: false,
+  },
 
   images: {
     remotePatterns: [
@@ -16,14 +18,8 @@ const nextConfig = {
     unoptimized: true,
   },
 
-  // ⚠️ NO expongas las variables al cliente
-  // ⚠️ Amplify las va a inyectar SOLO en serverless functions
+  // No expongas variables sensibles al cliente
   env: {},
-
-  // ❌ eliminar por completo experimental.appDir — Next 16 ya no lo soporta
-  // experimental: {
-  //   appDir: true,
-  // },
 };
 
 module.exports = nextConfig;
