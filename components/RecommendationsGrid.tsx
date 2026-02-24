@@ -1,5 +1,4 @@
 "use client";
-export const dynamic = "force-dynamic";
 
 import { useContext, useMemo } from "react";
 import { Contenido } from "../context/NewsContext";

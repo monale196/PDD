@@ -1,28 +1,40 @@
 "use client";
-export const dynamic = "force-dynamic";
 
 import { useContext, useEffect, useMemo, useState } from "react";
 import { NewsContext, Contenido } from "../context/NewsContext";
 import { SearchContext } from "../context/SearchContext";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { LanguageContext } from "../app/RootProviders";
-
-
 
 type SortOption = "title-asc" | "title-desc";
 
 export default function SearchResultsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const { articles } = useContext(NewsContext);
   const { keyword, setKeyword, setDateFilter } = useContext(SearchContext);
   const { language } = useContext(LanguageContext);
 
-  const keywordFromUrl = searchParams.get("keyword") || "";
-  const [localKeyword, setLocalKeyword] = useState(keywordFromUrl);
+  // 🔹 keyword desde URL pero manejada 100% client‑side
+  const [keywordFromUrl, setKeywordFromUrl] = useState("");
+  const [localKeyword, setLocalKeyword] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("title-asc");
+
+  /* =========================
+     LEER QUERY PARAM — método Amplify‑safe
+  ========================= */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const kw = params.get("keyword") || "";
+
+    setKeywordFromUrl(kw);
+    setLocalKeyword(kw);
+
+    if (kw && kw !== keyword) {
+      setKeyword(kw);
+    }
+  }, []);
 
   /* =========================
      TRADUCCIONES
@@ -51,16 +63,6 @@ export default function SearchResultsPage() {
   };
 
   const tr = language === "EN" ? t.en : t.es;
-
-  /* =========================
-     SINCRONIZAR KEYWORD
-  ========================= */
-  useEffect(() => {
-    if (keywordFromUrl && keywordFromUrl !== keyword) {
-      setKeyword(keywordFromUrl);
-      setLocalKeyword(keywordFromUrl);
-    }
-  }, [keywordFromUrl]);
 
   /* =========================
      UTILIDADES
@@ -113,7 +115,7 @@ export default function SearchResultsPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setKeyword(localKeyword);
-    router.push(`/search?keyword=${encodeURIComponent(localKeyword)}`);
+    router.push(`/buscar?keyword=${encodeURIComponent(localKeyword)}`);
   };
 
   const handleGoBack = () => {

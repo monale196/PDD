@@ -1,11 +1,8 @@
 "use client";
-export const dynamic = "force-dynamic";
-
+import { useEffect, useState } from "react";
 import SearchResultsPage from "@/components/SearchResultsPage";
 
-//Esto evita que Next.js intente prerenderizar la página
-
-
 export default function BuscarPage() {
+  // (Opcional) no necesita nada más porque SearchResultsPage leerá los params
   return <SearchResultsPage />;
 }
