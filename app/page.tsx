@@ -11,13 +11,11 @@ export default function Home() {
   const { dateFilter } = useContext(SearchContext); // ← 🔹 Fecha seleccionada en Header
   const { articles, mainArticlesBySection, loading, loadArticles } = useContext(NewsContext);
 
-  // 🔹 Dispara recarga SOLO cuando hay fecha en el Header (sin tocar cómo se muestra sin filtro)
+  // 🔹 Dispara recarga cuando cambia la fecha en el Header (como lo tenías)
   useEffect(() => {
-    // Si el usuario selecciona una fecha, pedimos al NewsContext cargar artículos de ESA fecha.
-    // Si NO hay fecha seleccionada, no hacemos nada y todo queda como se mostraba antes.
-    if (typeof loadArticles === "function" && dateFilter) {
-      // Firma deducida: loadArticles(undefined, undefined, date?, "all")
-      loadArticles(undefined, undefined, dateFilter, "all");
+    // Firma: loadArticles(undefined, undefined, date?, "all")
+    if (typeof loadArticles === "function") {
+      loadArticles(undefined, undefined, dateFilter || undefined, "all");
     }
   }, [dateFilter, loadArticles]);
 
@@ -65,50 +63,54 @@ export default function Home() {
   // - ISO completo ("2026-02-23T10:20:30Z" → "2026-02-23")
   // - "YYYY-MM-DD"
   // - "DD/MM/YYYY"
-  const getArticleDateKey = (raw?: string): string => {
+  // - Date object
+  const getArticleDateKey = (raw?: string | Date | number): string => {
     if (!raw) return "";
-    // Si ya es YYYY-MM-DD
-    const ymd = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
 
-    // DD/MM/YYYY
-    const dmy = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (dmy) {
-      const [_, dd, mm, yyyy] = dmy;
-      return `${yyyy}-${mm}-${dd}`;
+    // Si viene como Date
+    if (raw instanceof Date) {
+      if (!isNaN(raw.getTime())) return toLocalDateKey(raw);
+      return "";
     }
 
-    // Como último recurso, parsear y convertir a local key
-    const d = new Date(raw);
-    if (!isNaN(d.getTime())) return toLocalDateKey(d);
+    // Si viene como número (timestamp)
+    if (typeof raw === "number") {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) return toLocalDateKey(d);
+      return "";
+    }
+
+    // Si viene como string
+    if (typeof raw === "string") {
+      // Si ya es YYYY-MM-DD (o ISO que empieza por eso)
+      const ymd = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+
+      // DD/MM/YYYY
+      const dmy = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (dmy) {
+        const [_, dd, mm, yyyy] = dmy;
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      // Último recurso, parsear y convertir a local key
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) return toLocalDateKey(d);
+    }
 
     return "";
   };
 
   // ==============================
-  // 🔹 Secciones únicas con FALLOVER REAL
-  // - Si hay artículos (sea de hoy o del fetch por fecha), usamos sus secciones.
-  // - Si articles está vacío (p.ej. fetch por 23 devolvió 0), caemos a las claves
-  //   de mainArticlesBySection para "mostrar como se solía mostrar".
+  // 🔹 Secciones SIEMPRE visibles (evita grid en blanco)
+  //    Usamos la lista fija sectionNames para que existan secciones aunque articles esté vacío.
   // ==============================
   const uniqueSections = useMemo(() => {
-    // 1) Preferir las secciones presentes en `articles`
-    const fromArticles = Array.from(new Set(articles.map((a) => a.section)));
-
-    // 2) Si no hay, usar las secciones disponibles en `mainArticlesBySection`
-    const fallbackSlugs =
-      fromArticles.length > 0
-        ? fromArticles
-        : Object.keys(mainArticlesBySection || {});
-
-    return fallbackSlugs
-      .map((slug) => {
-        const info = sectionNames[slug];
-        if (!info) return null;
-        return { slug, ...info };
-      })
-      .filter(Boolean) as { slug: string; es: string; en: string; color: string }[];
-  }, [articles, mainArticlesBySection]);
+    return Object.keys(sectionNames).map((slug) => ({
+      slug,
+      ...sectionNames[slug],
+    }));
+  }, []);
 
   // ==============================
   // 🔹 Filtrado por fecha (fallback local si el servidor no filtró)
@@ -116,7 +118,7 @@ export default function Home() {
   const filteredArticles = useMemo(() => {
     if (!dateFilter) return articles;
     const wanted = dateFilter; // "YYYY-MM-DD" (viene del Header)
-    return articles.filter((a) => getArticleDateKey(a?.date) === wanted);
+    return articles.filter((a) => getArticleDateKey(a?.date as any) === wanted);
   }, [articles, dateFilter]);
 
   // ==============================
@@ -129,17 +131,20 @@ export default function Home() {
   // ==============================
   const sectionArticles = useMemo(() => {
     if (!uniqueSections.length) return [];
+
     if (dateFilter) {
       return uniqueSections
         .map((sec) => {
           const ofDay = filteredArticles.find((a) => a.section === sec.slug);
-          return ofDay || mainArticlesBySection[sec.slug];
+          const fallbackMain = mainArticlesBySection?.[sec.slug];
+          return ofDay || fallbackMain || null;
         })
         .filter(Boolean) as typeof articles;
     }
+
     // sin filtro: como antes, usamos los mainArticlesBySection
     return uniqueSections
-      .map((sec) => mainArticlesBySection[sec.slug])
+      .map((sec) => mainArticlesBySection?.[sec.slug] || null)
       .filter(Boolean) as typeof articles;
   }, [filteredArticles, mainArticlesBySection, uniqueSections, dateFilter]);
 
@@ -148,10 +153,20 @@ export default function Home() {
   // ==============================
   const otherArticles = useMemo(() => {
     const usedUrls = new Set(sectionArticles.map((a) => a.url));
-    const pool =
-      dateFilter && filteredArticles.length > 0 ? filteredArticles : articles.length > 0 ? articles : Object.values(mainArticlesBySection || {});
-    // Nota: añadimos un micro-fallback adicional a mainArticlesBySection si articles está vacío
-    return (pool as typeof articles).filter((a) => a && !usedUrls.has(a.url)).slice(0, 2);
+    let pool: typeof articles | any[] = [];
+
+    if (dateFilter && filteredArticles.length > 0) {
+      pool = filteredArticles;
+    } else if (articles.length > 0) {
+      pool = articles;
+    } else {
+      // Último fallback: valores de mainArticlesBySection (por si el fetch por fecha limpió articles)
+      pool = Object.values(mainArticlesBySection || {}).filter(Boolean);
+    }
+
+    return (pool as typeof articles)
+      .filter((a) => a && !usedUrls.has(a.url))
+      .slice(0, 2);
   }, [articles, filteredArticles, sectionArticles, dateFilter, mainArticlesBySection]);
 
   if (loading) {
@@ -170,8 +185,7 @@ export default function Home() {
       { day: "2-digit", month: "long", year: "numeric" }
     );
 
-  // 🚫 IMPORTANTE: Sin mensajes de "No hay noticias"
-  // Siempre mostramos contenido gracias a los fallbacks por sección/otros.
+  // 🚫 Sin mensajes de "No hay noticias": siempre hay contenido por los fallbacks.
 
   return (
     <div className="bg-[var(--color-background)] min-h-screen px-4 md:px-16 py-12">
