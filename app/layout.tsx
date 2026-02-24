@@ -1,7 +1,7 @@
 import "./tailwind.css";
 import "./globals.css";
+
 import localFont from "next/font/local";
-import "./globals.css";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import RootProviders from "./RootProviders";
