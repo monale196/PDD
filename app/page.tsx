@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useMemo } from "react";
+import { useContext, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { NewsContext } from "../context/NewsContext";
@@ -8,8 +8,18 @@ import { LanguageContext, SearchContext } from "./RootProviders";
 
 export default function Home() {
   const { language } = useContext(LanguageContext);
-  const { dateFilter } = useContext(SearchContext); // ← 🔹 Nos conectamos al filtro de fecha del Header
-  const { articles, mainArticlesBySection, loading } = useContext(NewsContext);
+  const { dateFilter } = useContext(SearchContext); // ← 🔹 Fecha seleccionada en Header
+  const { articles, mainArticlesBySection, loading, loadArticles } = useContext(NewsContext);
+
+  // 🔹 Dispara recarga cuando cambia la fecha en el Header (sin tocar Header)
+  useEffect(() => {
+    // Si hay dateFilter, pedimos al NewsContext cargar artículos de esa fecha.
+    // Firma deducida de tu Header: loadArticles(undefined, undefined, date?, "all")
+    // (goHome usa: loadArticles(undefined, undefined, undefined, "all"))
+    if (typeof loadArticles === "function") {
+      loadArticles(undefined, undefined, dateFilter || undefined, "all");
+    }
+  }, [dateFilter, loadArticles]);
 
   // 🔹 Mapa de traducción de secciones
   const sectionNames: Record<string, { es: string; en: string; color: string }> = {
@@ -22,7 +32,7 @@ export default function Home() {
     opinion: { es: "Opinión", en: "Opinion", color: "bg-[#f97316]" },
     empresa: { es: "Empresa", en: "Business", color: "bg-[#059669]" },
     sociedad: { es: "Sociedad", en: "Society", color: "bg-[#8b5cf6]" },
-    futuro: { es: "Futuro", en: "Future", color: "bg-[#0d6efd]" }, // azul para Futuro
+    futuro: { es: "Futuro", en: "Future", color: "bg-[#0d6efd]" },
   };
 
   const formatDate = (dateStr: string) => {
@@ -38,7 +48,44 @@ export default function Home() {
       .replace(/^(\*?\s*)?(Subtítulo|Subtitle):/i, "")
       .trim() || "";
 
-  // 🔹 Secciones únicas a partir de los artículos que ya tenemos
+  // ==============================
+  // 🔹 Normalización de fechas (sin problemas de zona horaria)
+  // ==============================
+
+  // Convierte Date a "YYYY-MM-DD" en zona local (sin saltos de día por UTC)
+  const toLocalDateKey = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+    // ¡No usamos toISOString() porque convierte a UTC y puede restar/sumar un día!
+  };
+
+  // Intenta obtener "YYYY-MM-DD" del artículo, soportando:
+  // - ISO completo ("2026-02-23T10:20:30Z" → "2026-02-23")
+  // - "YYYY-MM-DD"
+  // - "DD/MM/YYYY"
+  const getArticleDateKey = (raw?: string): string => {
+    if (!raw) return "";
+    // Si ya es YYYY-MM-DD
+    const ymd = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+
+    // DD/MM/YYYY
+    const dmy = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (dmy) {
+      const [_, dd, mm, yyyy] = dmy;
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // Como último recurso, parsear y convertir a local key
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) return toLocalDateKey(d);
+
+    return "";
+  };
+
+  // 🔹 Secciones únicas a partir de los artículos
   const uniqueSections = useMemo(() => {
     const slugs = Array.from(new Set(articles.map((a) => a.section)));
     return slugs
@@ -50,34 +97,38 @@ export default function Home() {
       .filter(Boolean) as { slug: string; es: string; en: string; color: string }[];
   }, [articles]);
 
-  // 🔹 NUEVO: Filtrado por fecha según Header (SearchContext)
-  // Si hay dateFilter (YYYY-MM-DD), nos quedamos con los artículos de ese día.
+  // ==============================
+  // 🔹 Filtrado por fecha (fallback local)
+  // ==============================
   const filteredArticles = useMemo(() => {
     if (!dateFilter) return articles;
-    return articles.filter((a) => {
-      // a.date puede ser "YYYY-MM-DD" o ISO; nos quedamos con la parte de fecha (YYYY-MM-DD)
-      const aDate = a?.date ? new Date(a.date).toISOString().split("T")[0] : "";
-      return aDate === dateFilter;
-    });
+    // Evitamos usar toISOString para no cambiar de día
+    const wanted = dateFilter; // "YYYY-MM-DD" (viene del Header)
+    return articles.filter((a) => getArticleDateKey(a?.date) === wanted);
   }, [articles, dateFilter]);
 
-  // 🔹 Para cada sección, tomamos el "principal" del día filtrado si existe;
-  // si no, usamos el mainArticlesBySection original (comportamiento anterior).
+  // Para cada sección, intentamos mostrar el primero del día filtrado;
+  // si no hay (y hay filtro), no mostramos nada para esa sección (si prefieres fallback, lo ponemos debajo).
   const sectionArticles = useMemo(() => {
+    if (!uniqueSections.length) return [];
+    if (dateFilter) {
+      // estricto a la fecha
+      return uniqueSections
+        .map((sec) => filteredArticles.find((a) => a.section === sec.slug))
+        .filter(Boolean) as typeof articles;
+    }
+    // sin filtro: como antes, usamos los mainArticlesBySection
     return uniqueSections
-      .map((sec) => {
-        const firstOfDay = filteredArticles.find((a) => a.section === sec.slug);
-        return firstOfDay || mainArticlesBySection[sec.slug];
-      })
+      .map((sec) => mainArticlesBySection[sec.slug])
       .filter(Boolean) as typeof articles;
-  }, [filteredArticles, mainArticlesBySection, uniqueSections]);
+  }, [filteredArticles, mainArticlesBySection, uniqueSections, dateFilter]);
 
-  // 🔹 Otros artículos: de la lista filtrada, eliminando los ya usados en secciones principales
+  // Otros artículos: del conjunto filtrado si hay filtro; si no, del total.
   const otherArticles = useMemo(() => {
     const usedUrls = new Set(sectionArticles.map((a) => a.url));
-    const pool = filteredArticles.length > 0 ? filteredArticles : articles;
+    const pool = dateFilter ? filteredArticles : articles;
     return pool.filter((a) => !usedUrls.has(a.url)).slice(0, 2);
-  }, [articles, filteredArticles, sectionArticles]);
+  }, [articles, filteredArticles, sectionArticles, dateFilter]);
 
   if (loading) {
     return (
@@ -87,13 +138,15 @@ export default function Home() {
     );
   }
 
-  // 🔹 Texto auxiliar bajo el título cuando hay filtro de fecha activo
+  // Texto auxiliar bajo el título cuando hay filtro de fecha activo
   const dateBadge =
     dateFilter &&
     new Date(dateFilter).toLocaleDateString(
       language === "ES" ? "es-ES" : "en-GB",
       { day: "2-digit", month: "long", year: "numeric" }
     );
+
+  const noResults = dateFilter && filteredArticles.length === 0;
 
   return (
     <div className="bg-[var(--color-background)] min-h-screen px-4 md:px-16 py-12">
@@ -105,6 +158,14 @@ export default function Home() {
         <p className="mt-2 text-sm text-[var(--color-gray)]">
           {language === "ES" ? "Filtrado por fecha: " : "Filtered by date: "}
           <span className="font-semibold">{dateBadge}</span>
+        </p>
+      )}
+
+      {noResults && (
+        <p className="mt-4 text-sm text-[var(--color-gray)]">
+          {language === "ES"
+            ? "No hay noticias para esta fecha."
+            : "No news for this date."}
         </p>
       )}
 
@@ -163,7 +224,7 @@ export default function Home() {
       </div>
 
       {/* ================= Otros artículos ================= */}
-      {otherArticles.length > 0 && (
+      {!noResults && otherArticles.length > 0 && (
         <div className="mt-16">
           <h2 className="text-2xl md:text-3xl font-bold mb-6 text-[var(--color-foreground)]">
             {language === "ES"
