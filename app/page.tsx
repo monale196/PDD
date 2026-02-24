@@ -14,8 +14,7 @@ export default function Home() {
   // 🔹 Dispara recarga cuando cambia la fecha en el Header (sin tocar Header)
   useEffect(() => {
     // Si hay dateFilter, pedimos al NewsContext cargar artículos de esa fecha.
-    // Firma deducida de tu Header: loadArticles(undefined, undefined, date?, "all")
-    // (goHome usa: loadArticles(undefined, undefined, undefined, "all"))
+    // Firma deducida de tu Header/Context: loadArticles(undefined, undefined, date?, "all")
     if (typeof loadArticles === "function") {
       loadArticles(undefined, undefined, dateFilter || undefined, "all");
     }
@@ -98,23 +97,31 @@ export default function Home() {
   }, [articles]);
 
   // ==============================
-  // 🔹 Filtrado por fecha (fallback local)
+  // 🔹 Filtrado por fecha (fallback local si el servidor no filtró)
   // ==============================
   const filteredArticles = useMemo(() => {
     if (!dateFilter) return articles;
-    // Evitamos usar toISOString para no cambiar de día
     const wanted = dateFilter; // "YYYY-MM-DD" (viene del Header)
-    return articles.filter((a) => getArticleDateKey(a?.date) === wanted);
+    const result = articles.filter((a) => getArticleDateKey(a?.date) === wanted);
+    return result;
   }, [articles, dateFilter]);
 
-  // Para cada sección, intentamos mostrar el primero del día filtrado;
-  // si no hay (y hay filtro), no mostramos nada para esa sección (si prefieres fallback, lo ponemos debajo).
+  // ==============================
+  // 🔹 Selección por sección con fallback SIEMPRE (nunca vacío)
+  // - Si hay filtro de fecha:
+  //   • Se intenta el del día.
+  //   • Si no hay, cae al principal de la sección (mainArticlesBySection[slug]).
+  // - Si NO hay filtro:
+  //   • Se usa el principal como siempre.
+  // ==============================
   const sectionArticles = useMemo(() => {
     if (!uniqueSections.length) return [];
     if (dateFilter) {
-      // estricto a la fecha
       return uniqueSections
-        .map((sec) => filteredArticles.find((a) => a.section === sec.slug))
+        .map((sec) => {
+          const ofDay = filteredArticles.find((a) => a.section === sec.slug);
+          return ofDay || mainArticlesBySection[sec.slug];
+        })
         .filter(Boolean) as typeof articles;
     }
     // sin filtro: como antes, usamos los mainArticlesBySection
@@ -123,10 +130,14 @@ export default function Home() {
       .filter(Boolean) as typeof articles;
   }, [filteredArticles, mainArticlesBySection, uniqueSections, dateFilter]);
 
-  // Otros artículos: del conjunto filtrado si hay filtro; si no, del total.
+  // ==============================
+  // 🔹 Otros artículos con fallback SIEMPRE (nunca vacío si hay artículos)
+  // - Si hay filtro y el set filtrado está vacío, cae a los artículos actuales.
+  // ==============================
   const otherArticles = useMemo(() => {
     const usedUrls = new Set(sectionArticles.map((a) => a.url));
-    const pool = dateFilter ? filteredArticles : articles;
+    const pool =
+      dateFilter && filteredArticles.length > 0 ? filteredArticles : articles;
     return pool.filter((a) => !usedUrls.has(a.url)).slice(0, 2);
   }, [articles, filteredArticles, sectionArticles, dateFilter]);
 
@@ -146,7 +157,8 @@ export default function Home() {
       { day: "2-digit", month: "long", year: "numeric" }
     );
 
-  const noResults = dateFilter && filteredArticles.length === 0;
+  // 🚫 IMPORTANTE: Eliminamos cualquier mensaje de "No hay noticias"
+  // Siempre mostramos contenido gracias a los fallbacks por sección/otros.
 
   return (
     <div className="bg-[var(--color-background)] min-h-screen px-4 md:px-16 py-12">
@@ -158,14 +170,6 @@ export default function Home() {
         <p className="mt-2 text-sm text-[var(--color-gray)]">
           {language === "ES" ? "Filtrado por fecha: " : "Filtered by date: "}
           <span className="font-semibold">{dateBadge}</span>
-        </p>
-      )}
-
-      {noResults && (
-        <p className="mt-4 text-sm text-[var(--color-gray)]">
-          {language === "ES"
-            ? "No hay noticias para esta fecha."
-            : "No news for this date."}
         </p>
       )}
 
@@ -224,7 +228,7 @@ export default function Home() {
       </div>
 
       {/* ================= Otros artículos ================= */}
-      {!noResults && otherArticles.length > 0 && (
+      {otherArticles.length > 0 && (
         <div className="mt-16">
           <h2 className="text-2xl md:text-3xl font-bold mb-6 text-[var(--color-foreground)]">
             {language === "ES"
