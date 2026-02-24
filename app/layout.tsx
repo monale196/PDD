@@ -1,4 +1,3 @@
-import "./tailwind.css";
 import "./globals.css";
 
 import localFont from "next/font/local";

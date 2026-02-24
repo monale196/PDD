@@ -6,8 +6,11 @@ module.exports = {
     "./context/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        inter: ["var(--font-inter)", "system-ui", "sans-serif"],
+      },
+    },
   },
   plugins: [],
 };
-// FORCE CACHE CLEAR

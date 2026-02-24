@@ -1,12 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-
-  // ⚠️ Desactivar Turbopack para que Tailwind funcione en Amplify
-  experimental: {
-    turbo: false,
-  },
-
+  experimental: { turbo: false },
   images: {
     remotePatterns: [
       {
@@ -17,9 +12,6 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-
-  // No expongas variables sensibles al cliente
   env: {},
 };
-
 module.exports = nextConfig;
