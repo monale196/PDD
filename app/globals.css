@@ -15,3 +15,17 @@ body {
   color: var(--color-foreground);
   font-family: var(--font-inter), system-ui, sans-serif;
 }
+
+/* DEBUG: borrar al final */
+body::before {
+  content: "CSS CARGADO ✅";
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 9999;
+  background: #111;
+  color: #fff;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+}
