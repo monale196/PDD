@@ -5,8 +5,8 @@ applications:
       variables:
         NODE_ENV: production
         NEXT_TELEMETRY_DISABLED: 1
-        # Las credenciales NO se ponen aquí. Añádelas en Amplify Console > App settings > Environment variables
-        # AMPLIFY_AWS_REGION, AMPLIFY_AWS_ACCESS_KEY_ID, AMPLIFY_AWS_SECRET_ACCESS_KEY
+        # 👇 clave para que Amplify NO omita devDependencies
+        NPM_CONFIG_PRODUCTION: "false"
     frontend:
       phases:
         preBuild:
@@ -24,8 +24,6 @@ applications:
       cache:
         paths:
           - node_modules/**/*
-    # No necesitas rewrites especiales: Next.js 16 en Amplify maneja App Router y /api automáticamente.
-    # Solo añadimos headers para evitar cachés agresivos del navegador en despliegues iniciales.
     customHeaders:
       - pattern: '**/*'
         headers:
