@@ -218,62 +218,50 @@ export default function Home() {
   );
 }
 
-/* =======================================================================
-   🔽🔽🔽 UTILIDADES AÑADIDAS (Bullets, Flashcards, Polls, Placeholders) 🔽🔽🔽
-   - No se toca ninguna línea del componente anterior.
-   - Puedes mover esto a `utils/parsers.ts` si prefieres.
-   ======================================================================= */
+/* =============================================================================
+   🧩 APARTADO 1: BULLETS (EN BREVE)
+   - Soporta "-" "*" "•" "–" y numerados "1." / "1)" como bullets.
+   - Convierte "1." en bullets reales.
+   - Rellena el placeholder ---BULLETS--- quitando "No generadas."
+   ============================================================================ */
 
-export type Flashcard = { title: string; body: string };
-export type Poll = { question: string; options: string[] };
+type BulletsParse = { bullets: string[] };
 
-const RE = {
+const RE_BULLETS = {
   headers: {
     bullets: /^\s*Bullets\s*:\s*$/i,
-    flashcards: /^\s*(Flashcards\s*:|---\s*FLASHCARDS\s*---)\s*$/i,
-    polls: /^\s*((Encuestas|Polls)\s*:|---\s*POLLS\s*---)\s*$/i,
     any:
       /^\s*(Título|Title|Subtítulo|Subtitle|Bullets|Flashcards|Encuestas|Polls)\s*:|^---\s*(BULLETS?|FLASHCARDS|POLLS)\s*---\s*$/i,
   },
   placeholders: {
     bullets: /^---\s*BULLETS?\s*---\s*$/i,
-    flashcards: /^---\s*FLASHCARDS\s*---\s*$/i,
-    polls: /^---\s*POLLS\s*---\s*$/i,
     noGenerated: /^\s*No\s+generadas?\.?\s*$/i,
   },
   listItemStart: /^\s*([-*•–]|(\d+[\.\)]))\s+/,
-  numberedQuestion: /^\s*\d+[\.\)]\s+(.+?)\s*$/,
-  inlineFlashcard: /^\s*(?:\d+[\.\)]\s+)?([^:]+):\s*(.+)?\s*$/,
 };
 
-function stripListPrefix(line: string): string {
-  return line.replace(RE.listItemStart, "").trim();
+function isBoundaryBullets(line: string): boolean {
+  return RE_BULLETS.headers.any.test(line || "");
 }
 
-function isBoundary(line: string): boolean {
-  return RE.headers.any.test(line || "");
+function stripListPrefixBullets(line: string): string {
+  return line.replace(RE_BULLETS.listItemStart, "").trim();
 }
 
-/**
- * Extrae los bullets desde un bloque "Bullets:" del documento.
- * Convierte "1. ..." en bullets simples y devuelve cada bullet como string.
- * - "QUE MANEJE EN VEZ DE 1. PUES QUE SEA CADA BULLETPOINT"
- */
-export function parseBulletsFromDoc(doc: string): string[] {
+export function parseBulletsFromDoc(doc: string): BulletsParse["bullets"] {
   const lines = doc.split(/\r?\n/);
   const bullets: string[] = [];
-
   for (let i = 0; i < lines.length; i++) {
-    if (RE.headers.bullets.test(lines[i])) {
+    if (RE_BULLETS.headers.bullets.test(lines[i])) {
       i++;
-      while (i < lines.length && !isBoundary(lines[i])) {
-        const line = lines[i].trim();
+      while (i < lines.length && !isBoundaryBullets(lines[i])) {
+        const line = (lines[i] ?? "").trim();
         if (!line) {
           i++;
           continue;
         }
-        if (RE.listItemStart.test(line)) {
-          bullets.push(stripListPrefix(line));
+        if (RE_BULLETS.listItemStart.test(line)) {
+          bullets.push(stripListPrefixBullets(line));
         }
         i++;
       }
@@ -283,232 +271,32 @@ export function parseBulletsFromDoc(doc: string): string[] {
   return bullets;
 }
 
-/**
- * Extrae flashcards soportando dos formatos:
- *  A) Bloque con títulos: "Economía:" / "Sociedad:" / "Futuro:" y el texto tras ":"
- *  B) Lista numerada: "1. Economía: texto..." → extrae título y texto tras los ":" ignorando la numeración
- */
-export function parseFlashcardsFromDoc(doc: string): Flashcard[] {
-  const lines = doc.split(/\r?\n/);
-  const cards: Flashcard[] = [];
-
-  const collectBlock = (startIndex: number) => {
-    let i = startIndex;
-    // Consumimos una posible línea en blanco inicial
-    if (/^\s*$/.test(lines[i] || "")) i++;
-
-    while (i < lines.length && !isBoundary(lines[i])) {
-      const line = lines[i] ?? "";
-      if (!line.trim()) {
-        i++;
-        continue;
-      }
-      const m = line.match(RE.inlineFlashcard);
-      if (m) {
-        const title = (m[1] || "").trim();
-        let body = (m[2] || "").trim();
-
-        // Si el cuerpo no está en la misma línea, acumulamos líneas siguientes hasta otro título o boundary
-        let j = i + 1;
-        const chunks: string[] = [];
-        while (j < lines.length) {
-          const peek = lines[j] ?? "";
-          if (!peek.trim()) {
-            j++;
-            continue;
-          }
-          if (RE.inlineFlashcard.test(peek) || isBoundary(peek)) break;
-          chunks.push(peek.trim());
-          j++;
-        }
-        if (!body && chunks.length) body = chunks.join(" ");
-
-        if (title) {
-          cards.push({ title, body });
-        }
-        i = j;
-        continue;
-      }
-      i++;
-    }
-    return i;
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    if (RE.headers.flashcards.test(lines[i])) {
-      i = collectBlock(i + 1);
-      break;
-    }
-  }
-  return cards;
-}
-
-/**
- * Extrae encuestas/polls.
- * - Reconoce "Encuestas:" y "Polls:" (y el placeholder ---POLLS---)
- * - Preguntas tipo "1) ¿...?" o "1. ¿...?"
- * - Respuestas: toma "- Sí" y "- No" si están; si no, autogenera ["Sí","No"]
- */
-export function parsePollsFromDoc(doc: string): Poll[] {
-  const lines = doc.split(/\r?\n/);
-  const polls: Poll[] = [];
-
-  const collectBlock = (startIndex: number) => {
-    let i = startIndex;
-    while (i < lines.length && !isBoundary(lines[i])) {
-      const qLine = lines[i] ?? "";
-      const qm = qLine.match(RE.numberedQuestion);
-      if (qm) {
-        const question = qm[1].trim();
-        const options: string[] = [];
-        let j = i + 1;
-        while (j < lines.length) {
-          const optLine = (lines[j] ?? "").trim();
-          if (!optLine) {
-            j++;
-            continue;
-          }
-          if (RE.numberedQuestion.test(optLine) || isBoundary(optLine)) break;
-          if (/^-\s*(Sí|Si|No)\s*$/i.test(optLine)) {
-            options.push(optLine.replace(/^-+\s*/, ""));
-          }
-          j++;
-        }
-        // Por defecto, si no hay opciones explícitas, asignamos Sí/No
-        if (options.length === 0) options.push("Sí", "No");
-        polls.push({ question, options });
-        i = j;
-        continue;
-      }
-      i++;
-    }
-    return i;
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    if (RE.headers.polls.test(lines[i])) {
-      i = collectBlock(i + 1);
-      break;
-    }
-  }
-  return polls;
-}
-
-/**
- * Genera el bloque estandarizado de BULLETS (un bullet por línea con "- ").
- */
 export function bulletsToBlock(bullets: string[], keepHeaderLine = true): string {
   const header = keepHeaderLine ? `---BULLETS---\n` : "";
   if (!bullets.length) return header.trim();
   return header + bullets.map((b) => `- ${b}`).join("\n");
 }
 
-/**
- * Genera el bloque estandarizado de FLASHCARDS:
- * Título como "Economía:" y el contenido tras los dos puntos.
- */
-export function flashcardsToBlock(cards: Flashcard[], keepHeaderLine = true): string {
-  const header = keepHeaderLine ? `---FLASHCARDS---\n` : "";
-  if (!cards.length) return header.trim();
-  return (
-    header +
-    cards
-      .map((c) => `${c.title.trim()}: ${c.body ? c.body.trim() : ""}`.trim())
-      .join("\n")
-  );
-}
-
-/**
- * Genera el bloque estandarizado de POLLS:
- * "1) Pregunta" + opciones "- Sí" y "- No" para cada pregunta.
- */
-export function pollsToBlock(polls: Poll[], keepHeaderLine = true): string {
-  const header = keepHeaderLine ? `---POLLS---\n` : "";
-  if (!polls.length) return header.trim();
-  const parts: string[] = [];
-  polls.forEach((p, idx) => {
-    parts.push(`${idx + 1}) ${p.question}`);
-    const opts = p.options.length ? p.options : ["Sí", "No"];
-    opts.forEach((o) => parts.push(`   - ${o}`));
-    parts.push(""); // línea en blanco entre preguntas
-  });
-  return header + parts.join("\n").trim();
-}
-
-/**
- * Elimina una línea "No generadas." si aparece justo debajo de un placeholder.
- */
-function dropNoGeneradas(lines: string[], placeholderIndex: number): number {
+function dropNoGeneradasBullets(lines: string[], placeholderIndex: number): void {
   const next = lines[placeholderIndex + 1] ?? "";
-  if (RE.placeholders.noGenerated.test(next)) {
+  if (RE_BULLETS.placeholders.noGenerated.test(next)) {
     lines.splice(placeholderIndex + 1, 1);
-    return 1;
   }
-  return 0;
 }
 
-/**
- * Rellena placeholders inferiores (---BULLETS---, ---FLASHCARDS---, ---POLLS---)
- * con el contenido extraído de los bloques superiores (Bullets:, Flashcards:, Encuestas:/Polls:).
- * 🔹 No añade el texto "No generadas".
- * 🔹 Mapea "Bullets:" → ---BULLETS---, "Flashcards:" → ---FLASHCARDS---, "Encuestas/Polls:" → ---POLLS---
- */
-export function fillPlaceholdersFromDoc(source: string): string {
+export function fillBulletsPlaceholdersFromDoc(source: string): string {
   const bullets = parseBulletsFromDoc(source);
-  const cards = parseFlashcardsFromDoc(source);
-  const polls = parsePollsFromDoc(source);
-
   const lines = source.split(/\r?\n/);
 
-  // Normalizamos BULLETS
   for (let i = 0; i < lines.length; i++) {
-    if (RE.placeholders.bullets.test(lines[i])) {
-      // quitar "No generadas." si está justo abajo
-      dropNoGeneradas(lines, i);
-
-      // bloque a insertar (sin repetir header)
+    if (RE_BULLETS.placeholders.bullets.test(lines[i])) {
+      dropNoGeneradasBullets(lines, i);
       const block = bulletsToBlock(bullets, false);
-
-      // limpiamos posibles restos hasta el próximo header/placeholder
+      // limpiar rango hasta próximo header/placeholder
       let j = i + 1;
       while (
         j < lines.length &&
-        !RE.headers.any.test(lines[j]) &&
-        !/^---\s*[A-Z-]+\s*---$/.test(lines[j])
-      ) {
-        j++;
-      }
-      // Reemplazamos el rango i+1..(j-1) por el bloque
-      lines.splice(i + 1, Math.max(0, j - (i + 1)), block);
-    }
-  }
-
-  // Normalizamos FLASHCARDS
-  for (let i = 0; i < lines.length; i++) {
-    if (RE.placeholders.flashcards.test(lines[i])) {
-      dropNoGeneradas(lines, i);
-      const block = flashcardsToBlock(cards, false);
-      let j = i + 1;
-      while (
-        j < lines.length &&
-        !RE.headers.any.test(lines[j]) &&
-        !/^---\s*[A-Z-]+\s*---$/.test(lines[j])
-      ) {
-        j++;
-      }
-      lines.splice(i + 1, Math.max(0, j - (i + 1)), block);
-    }
-  }
-
-  // Normalizamos POLLS
-  for (let i = 0; i < lines.length; i++) {
-    if (RE.placeholders.polls.test(lines[i])) {
-      dropNoGeneradas(lines, i);
-      const block = pollsToBlock(polls, false);
-      let j = i + 1;
-      while (
-        j < lines.length &&
-        !RE.headers.any.test(lines[j]) &&
+        !RE_BULLETS.headers.any.test(lines[j]) &&
         !/^---\s*[A-Z-]+\s*---$/.test(lines[j])
       ) {
         j++;
@@ -520,38 +308,248 @@ export function fillPlaceholdersFromDoc(source: string): string {
   return lines.join("\n");
 }
 
-/* =======================================================================
-   ✅ Ejemplo rápido de uso (opcional). No afecta a tu lógica.
-   -----------------------------------------------------------------------
-   const input = `
-   Título: ...
-   Bullets:
-   1. Enlace Móvil de Windows permite sincronizar...
-   2. Aunque tiene funciones útiles...
-   3. La herramienta requiere...
-   4. La velocidad de transferencia...
-   5. Existen alternativas gratuitas...
+/* =============================================================================
+   🧩 APARTADO 2: FLASHCARDS
+   - Soporta:
+     A) "Economía: texto..." (títulos como Economía/Sociedad/Futuro y el texto tras ":")
+     B) "1. Economía: texto..." → extrae solo "Economía" y el texto tras ":"
+   - Rellena el placeholder ---FLASHCARDS--- quitando "No generadas."
+   ============================================================================ */
 
-   Flashcards:
-   Economía: ...
-   Sociedad: ...
-   Futuro: ...
+export type Flashcard = { title: string; body: string };
 
-   Encuestas:
-   1) ¿Has utilizado Enlace Móvil...?
-      - Sí
-      - No
+const RE_FLASHCARDS = {
+  headers: {
+    flashcards: /^\s*(Flashcards\s*:|---\s*FLASHCARDS\s*---)\s*$/i,
+    any:
+      /^\s*(Título|Title|Subtítulo|Subtitle|Bullets|Flashcards|Encuestas|Polls)\s*:|^---\s*(BULLETS?|FLASHCARDS|POLLS)\s*---\s*$/i,
+  },
+  placeholders: {
+    flashcards: /^---\s*FLASHCARDS\s*---\s*$/i,
+    noGenerated: /^\s*No\s+generadas?\.?\s*$/i,
+  },
+  inlineFlashcard: /^\s*(?:\d+[\.\)]\s+)?([^:]+):\s*(.+)?\s*$/, // captura "1. Economía: texto" o "Economía: texto"
+};
 
-   ---BULLETS---
-   No generadas.
+function isBoundaryFlashcards(line: string): boolean {
+  return RE_FLASHCARDS.headers.any.test(line || "");
+}
 
-   ---FLASHCARDS---
-   No generadas.
+export function parseFlashcardsFromDoc(doc: string): Flashcard[] {
+  const lines = doc.split(/\r?\n/);
+  const cards: Flashcard[] = [];
 
-   ---POLLS---
-   No generadas.
-   `;
+  const collectBlock = (startIndex: number) => {
+    let i = startIndex;
+    if (/^\s*$/.test(lines[i] || "")) i++; // saltar posible línea en blanco
 
-   const output = fillPlaceholdersFromDoc(input);
-   console.log(output);
-   ======================================================================= */
+    while (i < lines.length && !isBoundaryFlashcards(lines[i])) {
+      const line = lines[i] ?? "";
+      if (!line.trim()) {
+        i++;
+        continue;
+      }
+      const m = line.match(RE_FLASHCARDS.inlineFlashcard);
+      if (m) {
+        const title = (m[1] || "").trim();
+        let body = (m[2] || "").trim();
+
+        // Si el cuerpo no está en la misma línea, acumulamos siguientes hasta otro título o boundary
+        let j = i + 1;
+        const chunks: string[] = [];
+        while (j < lines.length) {
+          const peek = lines[j] ?? "";
+          if (!peek.trim()) {
+            j++;
+            continue;
+          }
+          if (RE_FLASHCARDS.inlineFlashcard.test(peek) || isBoundaryFlashcards(peek)) break;
+          chunks.push(peek.trim());
+          j++;
+        }
+        if (!body && chunks.length) body = chunks.join(" ");
+
+        if (title) cards.push({ title, body });
+        i = j;
+        continue;
+      }
+      i++;
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    if (RE_FLASHCARDS.headers.flashcards.test(lines[i])) {
+      collectBlock(i + 1);
+      break;
+    }
+  }
+  return cards;
+}
+
+export function flashcardsToBlock(cards: Flashcard[], keepHeaderLine = true): string {
+  const header = keepHeaderLine ? `---FLASHCARDS---\n` : "";
+  if (!cards.length) return header.trim();
+  return (
+    header +
+    cards
+      .map((c) => `${c.title.trim()}: ${c.body ? c.body.trim() : ""}`.trim())
+      .join("\n")
+  );
+}
+
+function dropNoGeneradasFlashcards(lines: string[], placeholderIndex: number): void {
+  const next = lines[placeholderIndex + 1] ?? "";
+  if (RE_FLASHCARDS.placeholders.noGenerated.test(next)) {
+    lines.splice(placeholderIndex + 1, 1);
+  }
+}
+
+export function fillFlashcardsPlaceholdersFromDoc(source: string): string {
+  const cards = parseFlashcardsFromDoc(source);
+  const lines = source.split(/\r?\n/);
+
+  for (let i = 0; i < lines.length; i++) {
+    if (RE_FLASHCARDS.placeholders.flashcards.test(lines[i])) {
+      dropNoGeneradasFlashcards(lines, i);
+      const block = flashcardsToBlock(cards, false);
+      // limpiar rango hasta próximo header/placeholder
+      let j = i + 1;
+      while (
+        j < lines.length &&
+        !RE_FLASHCARDS.headers.any.test(lines[j]) &&
+        !/^---\s*[A-Z-]+\s*---$/.test(lines[j])
+      ) {
+        j++;
+      }
+      lines.splice(i + 1, Math.max(0, j - (i + 1)), block);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+/* =============================================================================
+   🧩 APARTADO 3: POLLS / ENCUESTAS
+   - Reconoce "Encuestas:" y "Polls:" (y placeholder ---POLLS---)
+   - Preguntas tipo "1) ¿...?"/"1. ¿...?"
+   - Opciones: usa "- Sí" y "- No" si están; si no, autogenera ["Sí","No"]
+   - Rellena ---POLLS--- quitando "No generadas."
+   ============================================================================ */
+
+export type Poll = { question: string; options: string[] };
+
+const RE_POLLS = {
+  headers: {
+    polls: /^\s*((Encuestas|Polls)\s*:|---\s*POLLS\s*---)\s*$/i,
+    any:
+      /^\s*(Título|Title|Subtítulo|Subtitle|Bullets|Flashcards|Encuestas|Polls)\s*:|^---\s*(BULLETS?|FLASHCARDS|POLLS)\s*---\s*$/i,
+  },
+  placeholders: {
+    polls: /^---\s*POLLS\s*---\s*$/i,
+    noGenerated: /^\s*No\s+generadas?\.?\s*$/i,
+  },
+  numberedQuestion: /^\s*\d+[\.\)]\s+(.+?)\s*$/,
+  yesNo: /^-\s*(Sí|Si|No)\s*$/i,
+};
+
+function isBoundaryPolls(line: string): boolean {
+  return RE_POLLS.headers.any.test(line || "");
+}
+
+export function parsePollsFromDoc(doc: string): Poll[] {
+  const lines = doc.split(/\r?\n/);
+  const polls: Poll[] = [];
+
+  const collectBlock = (startIndex: number) => {
+    let i = startIndex;
+    while (i < lines.length && !isBoundaryPolls(lines[i])) {
+      const qLine = lines[i] ?? "";
+      const qm = qLine.match(RE_POLLS.numberedQuestion);
+      if (qm) {
+        const question = qm[1].trim();
+        const options: string[] = [];
+        let j = i + 1;
+        while (j < lines.length) {
+          const optLine = (lines[j] ?? "").trim();
+          if (!optLine) {
+            j++;
+            continue;
+          }
+          if (RE_POLLS.numberedQuestion.test(optLine) || isBoundaryPolls(optLine)) break;
+          if (RE_POLLS.yesNo.test(optLine)) {
+            options.push(optLine.replace(/^-+\s*/, ""));
+          }
+          j++;
+        }
+        if (options.length === 0) options.push("Sí", "No");
+        polls.push({ question, options });
+        i = j;
+        continue;
+      }
+      i++;
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    if (RE_POLLS.headers.polls.test(lines[i])) {
+      collectBlock(i + 1);
+      break;
+    }
+  }
+  return polls;
+}
+
+export function pollsToBlock(polls: Poll[], keepHeaderLine = true): string {
+  const header = keepHeaderLine ? `---POLLS---\n` : "";
+  if (!polls.length) return header.trim();
+  const parts: string[] = [];
+  polls.forEach((p, idx) => {
+    parts.push(`${idx + 1}) ${p.question}`);
+    const opts = p.options.length ? p.options : ["Sí", "No"];
+    opts.forEach((o) => parts.push(`   - ${o}`));
+    parts.push(""); // separación entre preguntas
+  });
+  return header + parts.join("\n").trim();
+}
+
+function dropNoGeneradasPolls(lines: string[], placeholderIndex: number): void {
+  const next = lines[placeholderIndex + 1] ?? "";
+  if (RE_POLLS.placeholders.noGenerated.test(next)) {
+    lines.splice(placeholderIndex + 1, 1);
+  }
+}
+
+export function fillPollsPlaceholdersFromDoc(source: string): string {
+  const polls = parsePollsFromDoc(source);
+  const lines = source.split(/\r?\n/);
+
+  for (let i = 0; i < lines.length; i++) {
+    if (RE_POLLS.placeholders.polls.test(lines[i])) {
+      dropNoGeneradasPolls(lines, i);
+      const block = pollsToBlock(polls, false);
+      // limpiar rango hasta próximo header/placeholder
+      let j = i + 1;
+      while (
+        j < lines.length &&
+        !RE_POLLS.headers.any.test(lines[j]) &&
+        !/^---\s*[A-Z-]+\s*---$/.test(lines[j])
+      ) {
+        j++;
+      }
+      lines.splice(i + 1, Math.max(0, j - (i + 1)), block);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+/* =============================================================================
+   ✅ NOTA DE USO (opcional, no afecta a tu lógica):
+   - Si quieres procesar solo un apartado:
+       const out1 = fillBulletsPlaceholdersFromDoc(texto);
+       const out2 = fillFlashcardsPlaceholdersFromDoc(out1);
+       const out3 = fillPollsPlaceholdersFromDoc(out2);
+   - Así se rellenan los placeholders de cada apartado por separado,
+     tomando "Bullets:", "Flashcards:", y "Encuestas:/Polls:" de arriba,
+     y evitando insertar "No generadas."
+   ============================================================================ */
