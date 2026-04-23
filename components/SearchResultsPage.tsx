@@ -1,19 +1,12 @@
 "use client";
 
 import { useContext, useMemo, useState } from "react";
-<<<<<<< Updated upstream
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+
 import { NewsContext, Contenido } from "@/context/NewsContext";
 import { SearchContext } from "@/context/SearchContext";
-import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { LanguageContext } from "@/app/RootProviders";
-=======
-import { NewsContext, Contenido } from "../context/NewsContext";
-import { SearchContext } from "../context/SearchContext";
-import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { LanguageContext } from "../app/RootProviders";
->>>>>>> Stashed changes
 
 type SortOption = "title-asc" | "title-desc";
 
@@ -28,8 +21,6 @@ export default function SearchResultsPage() {
   const [sortBy, setSortBy] = useState<SortOption>("title-asc");
 
   /* =========================
-<<<<<<< Updated upstream
-=======
      TRADUCCIONES
   ========================= */
   const t = {
@@ -42,6 +33,7 @@ export default function SearchResultsPage() {
       titleAsc: "Título A–Z",
       titleDesc: "Título Z–A",
       searchPlaceholder: "Buscar noticias…",
+      searchButton: "Buscar",
     },
     en: {
       resultsFor: "Results for",
@@ -52,20 +44,20 @@ export default function SearchResultsPage() {
       titleAsc: "Title A–Z",
       titleDesc: "Title Z–A",
       searchPlaceholder: "Search news…",
+      searchButton: "Search",
     },
   };
 
   const tr = language === "EN" ? t.en : t.es;
 
   /* =========================
-     PROTECCIÓN CLAVE PARA AMPLIFY
+     PROTECCIÓN (AMPLIFY / SSR)
   ========================= */
-  if (!articles || articles.length === 0) {
+  if (!articles) {
     return null;
   }
 
   /* =========================
->>>>>>> Stashed changes
      UTILIDADES
   ========================= */
   const cleanText = (text = "") =>
@@ -87,8 +79,6 @@ export default function SearchResultsPage() {
      FILTRADO
   ========================= */
   const results = useMemo(() => {
-    if (!articles || articles.length === 0) return [];
-
     let filtered = [...articles];
 
     if (keyword.trim()) {
@@ -123,18 +113,18 @@ export default function SearchResultsPage() {
     router.push(`/secciones/${article.section}`);
   };
 
+  const handleGoBack = () => {
+    router.back();
+  };
+
   /* =========================
      RENDER
   ========================= */
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
-<<<<<<< Updated upstream
-      {/* UI intacta */}
-=======
-
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-[var(--color-foreground)]">
+        <h1 className="text-2xl font-bold">
           {tr.resultsFor} “{keyword}”
         </h1>
 
@@ -158,7 +148,7 @@ export default function SearchResultsPage() {
           type="submit"
           className="px-6 py-3 rounded-xl bg-[var(--color-accent)] text-white font-semibold hover:opacity-90 transition"
         >
-          Buscar
+          {tr.searchButton}
         </button>
       </form>
 
@@ -177,9 +167,7 @@ export default function SearchResultsPage() {
 
       {/* RESULTADOS */}
       {results.length === 0 ? (
-        <p className="text-[var(--color-gray)] text-lg">
-          {tr.noResults}
-        </p>
+        <p className="text-gray-500 text-lg">{tr.noResults}</p>
       ) : (
         <AnimatePresence>
           <div className="space-y-6">
@@ -189,20 +177,20 @@ export default function SearchResultsPage() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 12 }}
-                className="bg-[var(--color-card)] border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition"
+                className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition"
               >
-                <h2 className="text-xl font-semibold text-[var(--color-foreground)]">
+                <h2 className="text-xl font-semibold">
                   {cleanText(article.title)}
                 </h2>
 
                 {article.subtitle && (
-                  <p className="text-[var(--color-gray)] mt-2">
+                  <p className="text-gray-600 mt-2">
                     {cleanText(article.subtitle)}
                   </p>
                 )}
 
                 {formatDate(article.date) && (
-                  <p className="text-sm text-[var(--color-gray)] mt-1">
+                  <p className="text-sm text-gray-500 mt-1">
                     {formatDate(article.date)}
                   </p>
                 )}
@@ -218,7 +206,6 @@ export default function SearchResultsPage() {
           </div>
         </AnimatePresence>
       )}
->>>>>>> Stashed changes
     </div>
   );
 }
