@@ -1,11 +1,19 @@
 "use client";
 
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
+<<<<<<< Updated upstream
+import { NewsContext, Contenido } from "@/context/NewsContext";
+import { SearchContext } from "@/context/SearchContext";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { LanguageContext } from "@/app/RootProviders";
+=======
 import { NewsContext, Contenido } from "../context/NewsContext";
 import { SearchContext } from "../context/SearchContext";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { LanguageContext } from "../app/RootProviders";
+>>>>>>> Stashed changes
 
 type SortOption = "title-asc" | "title-desc";
 
@@ -16,27 +24,12 @@ export default function SearchResultsPage() {
   const { keyword, setKeyword, setDateFilter } = useContext(SearchContext);
   const { language } = useContext(LanguageContext);
 
-  // 🔹 keyword desde URL pero manejada 100% client‑side
-  const [keywordFromUrl, setKeywordFromUrl] = useState("");
-  const [localKeyword, setLocalKeyword] = useState("");
+  const [localKeyword, setLocalKeyword] = useState(keyword);
   const [sortBy, setSortBy] = useState<SortOption>("title-asc");
 
   /* =========================
-     LEER QUERY PARAM — método Amplify‑safe
-  ========================= */
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const kw = params.get("keyword") || "";
-
-    setKeywordFromUrl(kw);
-    setLocalKeyword(kw);
-
-    if (kw && kw !== keyword) {
-      setKeyword(kw);
-    }
-  }, []);
-
-  /* =========================
+<<<<<<< Updated upstream
+=======
      TRADUCCIONES
   ========================= */
   const t = {
@@ -65,6 +58,14 @@ export default function SearchResultsPage() {
   const tr = language === "EN" ? t.en : t.es;
 
   /* =========================
+     PROTECCIÓN CLAVE PARA AMPLIFY
+  ========================= */
+  if (!articles || articles.length === 0) {
+    return null;
+  }
+
+  /* =========================
+>>>>>>> Stashed changes
      UTILIDADES
   ========================= */
   const cleanText = (text = "") =>
@@ -83,15 +84,19 @@ export default function SearchResultsPage() {
   };
 
   /* =========================
-     FILTRADO Y ORDENAMIENTO
+     FILTRADO
   ========================= */
   const results = useMemo(() => {
+    if (!articles || articles.length === 0) return [];
+
     let filtered = [...articles];
 
     if (keyword.trim()) {
       const q = keyword.toLowerCase();
       filtered = filtered.filter(a =>
-        `${a.title} ${a.subtitle ?? ""}`.toLowerCase().includes(q)
+        `${a.title} ${a.subtitle ?? ""} ${a.body ?? ""}`
+          .toLowerCase()
+          .includes(q)
       );
     }
 
@@ -107,20 +112,15 @@ export default function SearchResultsPage() {
   /* =========================
      ACCIONES
   ========================= */
-  const handleReadMore = (article: Contenido) => {
-    setDateFilter(article.date);
-    router.push(`/secciones/${article.section}?article=${article.url}`);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setKeyword(localKeyword);
     router.push(`/buscar?keyword=${encodeURIComponent(localKeyword)}`);
   };
 
-  const handleGoBack = () => {
-    setKeyword("");
-    router.back();
+  const handleReadMore = (article: Contenido) => {
+    setDateFilter(article.date);
+    router.push(`/secciones/${article.section}`);
   };
 
   /* =========================
@@ -128,11 +128,14 @@ export default function SearchResultsPage() {
   ========================= */
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
+<<<<<<< Updated upstream
+      {/* UI intacta */}
+=======
 
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h1 className="text-2xl font-bold text-[var(--color-foreground)]">
-          {tr.resultsFor} “{keyword || keywordFromUrl}”
+          {tr.resultsFor} “{keyword}”
         </h1>
 
         <button
@@ -144,10 +147,7 @@ export default function SearchResultsPage() {
       </div>
 
       {/* BUSCADOR */}
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col md:flex-row gap-4"
-      >
+      <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4">
         <input
           value={localKeyword}
           onChange={(e) => setLocalKeyword(e.target.value)}
@@ -218,6 +218,7 @@ export default function SearchResultsPage() {
           </div>
         </AnimatePresence>
       )}
+>>>>>>> Stashed changes
     </div>
   );
 }

@@ -1,9 +1,13 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState, useContext } from "react";
 import { motion } from "framer-motion";
 import RecommendationsGrid from "./RecommendationsGrid";
 import { LanguageContext } from "../app/RootProviders";
+
+
+
 
 /* ───────── ICONOS FLASHCARDS ───────── */
 const iconMap: Record<string, string> = {
@@ -108,12 +112,6 @@ export default function ArticleView({ article, allArticles }: any) {
           const line = raw.trim();
           if (!line) return;
 
-          /* ───────── IGNORAR "No generadas." ───────── */
-          /* NUEVAS CONDICIONES */
-          if (/^No generadas?\.?$/i.test(line)) {
-            return;
-          }
-
           /* CAMBIO DE SECCIÓN */
           if (line.startsWith("---")) {
             if (currentFlashcard) {
@@ -128,67 +126,9 @@ export default function ArticleView({ article, allArticles }: any) {
             return;
           }
 
-          /* ───────── MAPEO DE ENCABEZADOS SIN GUIONES A SECCIONES ───────── */
-          /* NUEVAS CONDICIONES */
-          // Bullets: / En breve: / In brief:
-          if (/^(Bullets|En breve|In brief)\s*:\s*$/i.test(line)) {
-            if (currentFlashcard) {
-              f.push(currentFlashcard);
-              currentFlashcard = null;
-            }
-            if (currentPoll) {
-              p.push(currentPoll);
-              currentPoll = null;
-            }
-            section = "---BULLETS---";
-            return;
-          }
-          // Flashcards:
-          if (/^Flashcards\s*:\s*$/i.test(line)) {
-            if (currentFlashcard) {
-              f.push(currentFlashcard);
-              currentFlashcard = null;
-            }
-            if (currentPoll) {
-              p.push(currentPoll);
-              currentPoll = null;
-            }
-            section = "---FLASHCARDS---";
-            return;
-          }
-          // Encuestas: / Polls:
-          if (/^(Encuestas|Polls)\s*:\s*$/i.test(line)) {
-            if (currentFlashcard) {
-              f.push(currentFlashcard);
-              currentFlashcard = null;
-            }
-            if (currentPoll) {
-              p.push(currentPoll);
-              currentPoll = null;
-            }
-            section = "---POLLS---";
-            return;
-          }
-
           /* BULLETS */
           if (section === "---BULLETS---" && line.startsWith("-")) {
-            b.push(line.replace(/^-+\s*/, ""));
-          }
-
-          /* ───────── BULLETS (NUEVOS FORMATOS) ───────── */
-          /* NUEVAS CONDICIONES */
-          if (section === "---BULLETS---") {
-            // * o • como bullets
-            if (line.startsWith("*") || line.startsWith("•")) {
-              b.push(line.replace(/^(\*|•)\s*/, ""));
-              return;
-            }
-            // Numerados: 1. ..., 2) ..., 3 ) ...
-            const numBullet = line.match(/^\d+\s*[\.\)]\s*(.*)$/);
-            if (numBullet) {
-              b.push(numBullet[1].trim());
-              return;
-            }
+            b.push(line.replace(/^-\s*/, ""));
           }
 
           /* FLASHCARDS */
@@ -200,18 +140,6 @@ export default function ArticleView({ article, allArticles }: any) {
               currentFlashcard = {
                 title: flashcardMatch[1].trim(),
                 summary: flashcardMatch[2].trim(),
-              };
-              return;
-            }
-
-            /* ───────── FLASHCARDS (1) Economía: Texto) ───────── */
-            /* NUEVAS CONDICIONES */
-            const flashcardParenMatch = line.match(/^\d+\)\s*([^:]+)[:\-]?\s*(.*)$/);
-            if (flashcardParenMatch) {
-              if (currentFlashcard) f.push(currentFlashcard);
-              currentFlashcard = {
-                title: flashcardParenMatch[1].trim(),
-                summary: flashcardParenMatch[2].trim(),
               };
               return;
             }
@@ -242,7 +170,6 @@ export default function ArticleView({ article, allArticles }: any) {
               if (currentPoll) p.push(currentPoll);
 
               let question = pollMatch[1].trim();
-
               const inlineYesNo = question.match(/\b(Sí\/No|Si\/No|Yes\/No)\b/i);
               if (inlineYesNo) {
                 const options = inlineYesNo[0].split("/").map((o) => o.trim());
@@ -259,16 +186,6 @@ export default function ArticleView({ article, allArticles }: any) {
               const option = line.replace(/^-\s*/, "");
               currentPoll.options.push(option);
               currentPoll.votes.push(0);
-              return;
-            }
-
-            /* ───────── POLLS (NUEVOS FORMATOS DE OPCIÓN) ───────── */
-            /* NUEVAS CONDICIONES */
-            if (currentPoll && (line.startsWith("*") || line.startsWith("•"))) {
-              const option = line.replace(/^(\*|•)\s*/, "");
-              currentPoll.options.push(option);
-              currentPoll.votes.push(0);
-              return;
             }
           }
         });
@@ -276,18 +193,9 @@ export default function ArticleView({ article, allArticles }: any) {
         if (currentFlashcard) f.push(currentFlashcard);
         if (currentPoll) p.push(currentPoll);
 
-        /* ───────── POLLS: fallback Sí/No si no hay opciones ───────── */
-        /* NUEVAS CONDICIONES */
-        const yesNo = lang === "es" ? ["Sí", "No"] : ["Yes", "No"];
-        const pFinal = p.map((poll) =>
-          poll.options.length > 0
-            ? poll
-            : { ...poll, options: [...yesNo], votes: [0, 0] }
-        );
-
         setBullets(b);
         setFlashcards(f);
-        setPolls(pFinal);
+        setPolls(p);
       });
   }, [txtUrl, lang]);
 

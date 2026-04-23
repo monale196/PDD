@@ -1,110 +1,188 @@
-"use client";
+export const runtime = "nodejs";
+import { NextResponse } from "next/server";
+import {
+  S3Client,
+  ListObjectsV2Command,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
 
-import { useState, useContext } from "react";
-import { LanguageContext } from "../../RootProviders";
-import axios from "axios";
+const s3 = new S3Client({
+  region: process.env.AWS_REGION || "eu-north-1",
+});
 
-export default function AdminEntrevistas() {
-  const { language } = useContext(LanguageContext);
+const BUCKET = "newsroomcache";
+const S3_BASE_URL = `https://${BUCKET}.s3.eu-north-1.amazonaws.com/`;
 
-  const [tituloES, setTituloES] = useState("");
-  const [tituloEN, setTituloEN] = useState("");
-  const [descripcionES, setDescripcionES] = useState("");
-  const [descripcionEN, setDescripcionEN] = useState("");
-  const [fecha, setFecha] = useState("");
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null);
-  const [subiendo, setSubiendo] = useState(false);
-  const [mensaje, setMensaje] = useState("");
+// --------------------------------------------------
+// helpers
+// --------------------------------------------------
 
-  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files ? e.target.files[0] : null;
-    if (!file) return;
+const streamToString = async (stream: any): Promise<string> => {
+  const chunks: any[] = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return Buffer.concat(chunks).toString("utf-8");
+};
 
-    if (!file.type.startsWith("video/")) {
-      setMensaje(language === "ES" ? "Solo se permiten archivos de video" : "Only video files allowed");
-      setVideoFile(null);
-      setVideoPreview(null);
-      return;
-    }
-
-    if (file.size > 500 * 1024 * 1024) {
-      setMensaje(language === "ES" ? "El video es demasiado grande (máx 500MB)" : "Video is too large (max 500MB)");
-      setVideoFile(null);
-      setVideoPreview(null);
-      return;
-    }
-
-    setMensaje("");
-    setVideoFile(file);
-    setVideoPreview(URL.createObjectURL(file));
+const getTodayParts = () => {
+  const d = new Date();
+  return {
+    year: d.getFullYear().toString(),
+    month: String(d.getMonth() + 1).padStart(2, "0"),
+    day: String(d.getDate()).padStart(2, "0"),
   };
+};
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!videoFile) {
-      setMensaje(language === "ES" ? "Debes seleccionar un video antes de subir" : "You must select a video before uploading");
-      return;
-    }
-
-    setSubiendo(true);
-    setMensaje("");
-
-    try {
-      const formData = new FormData();
-      formData.append("video", videoFile);
-      formData.append("tituloES", tituloES);
-      formData.append("tituloEN", tituloEN);
-      formData.append("descripcionES", descripcionES);
-      formData.append("descripcionEN", descripcionEN);
-      formData.append("fecha", fecha);
-
-      const res = await axios.post("/api/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      if (res.status === 200) {
-        setMensaje(language === "ES" ? "✅ Entrevista subida correctamente" : "✅ Interview uploaded successfully");
-        setTituloES("");
-        setTituloEN("");
-        setDescripcionES("");
-        setDescripcionEN("");
-        setFecha("");
-        setVideoFile(null);
-        setVideoPreview(null);
-      } else {
-        setMensaje(language === "ES" ? "❌ Error subiendo la entrevista" : "❌ Error uploading interview");
-      }
-    } catch (err) {
-      console.error(err);
-      setMensaje(language === "ES" ? "❌ Error subiendo la entrevista" : "❌ Error uploading interview");
-    } finally {
-      setSubiendo(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen p-8 bg-gray-50">
-      <h1 className="text-3xl font-bold mb-6">
-        {language === "ES" ? "Panel de Subida de Entrevistas" : "Interviews Upload Panel"}
-      </h1>
-
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl shadow-md space-y-4 max-w-2xl">
-        <input placeholder={language === "ES" ? "Título (ES)" : "Title (ES)"} value={tituloES} onChange={(e) => setTituloES(e.target.value)} required className="w-full border p-2 rounded"/>
-        <input placeholder={language === "ES" ? "Título (EN)" : "Title (EN)"} value={tituloEN} onChange={(e) => setTituloEN(e.target.value)} required className="w-full border p-2 rounded"/>
-        <textarea placeholder={language === "ES" ? "Descripción (ES)" : "Description (ES)"} value={descripcionES} onChange={(e) => setDescripcionES(e.target.value)} required className="w-full border p-2 rounded"/>
-        <textarea placeholder={language === "ES" ? "Descripción (EN)" : "Description (EN)"} value={descripcionEN} onChange={(e) => setDescripcionEN(e.target.value)} required className="w-full border p-2 rounded"/>
-        <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required className="border p-2 rounded w-full"/>
-        <input type="file" accept="video/*" onChange={handleVideoChange} required />
-        {videoFile && <p className="text-sm mt-1">{language === "ES" ? "Seleccionado:" : "Selected:"} {videoFile.name}</p>}
-        {videoPreview && (
-          <video src={videoPreview} controls className="mt-2 w-full max-h-96 rounded-lg border" />
-        )}
-        <button type="submit" disabled={subiendo} className="px-6 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
-          {subiendo ? (language === "ES" ? "Subiendo..." : "Uploading...") : (language === "ES" ? "Subir Entrevista" : "Upload Interview")}
-        </button>
-        {mensaje && <p className="mt-2 font-medium">{mensaje}</p>}
-      </form>
-    </div>
+const getLatestDay = async (
+  year: string,
+  month: string
+): Promise<string | null> => {
+  const res = await s3.send(
+    new ListObjectsV2Command({
+      Bucket: BUCKET,
+      Prefix: `data/news/${year}/${month}/`,
+      Delimiter: "/",
+    })
   );
+
+  const days =
+    res.CommonPrefixes?.map((p) => p.Prefix!.split("/").slice(-2)[0]) || [];
+
+  return days.sort().pop() || null;
+};
+
+// --------------------------------------------------
+// API
+// --------------------------------------------------
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+
+    const articleKey = searchParams.get("article");
+    const latestOnly = searchParams.get("latestOnly");
+    const lang = searchParams.get("lang") || "en";
+    const sectionFilter = searchParams.get("section");
+
+    let year = searchParams.get("year");
+    let month = searchParams.get("month");
+    let day = searchParams.get("day");
+
+    // --------------------------------------------------
+    // SINGLE ARTICLE
+    // --------------------------------------------------
+    if (articleKey) {
+      const txtObj = await s3.send(
+        new GetObjectCommand({
+          Bucket: BUCKET,
+          Key: articleKey,
+        })
+      );
+
+      const text = await streamToString(txtObj.Body);
+      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+
+      return NextResponse.json({
+        article: {
+          id: articleKey,
+          title: lines[0] || "",
+          subtitle: lines[1] || "",
+          body: lines.slice(2).join("\n"),
+          txtUrl: `${S3_BASE_URL}${articleKey}`,
+        },
+      });
+    }
+
+    // --------------------------------------------------
+    // DATE RESOLUTION
+    // --------------------------------------------------
+    if (!year || !month) {
+      const today = getTodayParts();
+      year = today.year;
+      month = today.month;
+    }
+
+    if (!day) {
+      const latestDay = await getLatestDay(year, month);
+      if (!latestDay) {
+        return NextResponse.json({ articles: [] });
+      }
+      day = latestDay;
+    }
+
+    const basePrefix = `data/news/${year}/${month}/${day}/${lang}/`;
+
+    // --------------------------------------------------
+    // LIST SECTIONS
+    // --------------------------------------------------
+    const sectionsRes = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: BUCKET,
+        Prefix: basePrefix,
+        Delimiter: "/",
+      })
+    );
+
+    const sections =
+      sectionsRes.CommonPrefixes?.map((p) =>
+        p.Prefix!.replace(basePrefix, "").replace("/", "")
+      ) || [];
+
+    const articles: any[] = [];
+
+    // --------------------------------------------------
+    // LIST ARTICLES
+    // --------------------------------------------------
+    for (const section of sections) {
+      if (sectionFilter && section !== sectionFilter) continue;
+
+      const prefix = `${basePrefix}${section}/`;
+
+      const filesRes = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: BUCKET,
+          Prefix: prefix,
+        })
+      );
+
+      const files = filesRes.Contents?.map((o) => o.Key!) || [];
+
+      const txtKey = files.find((f) => f.endsWith("article.txt"));
+      const imageKey = files.find((f) => f.endsWith(".jpg"));
+
+      if (!txtKey) continue;
+
+      const txtObj = await s3.send(
+        new GetObjectCommand({ Bucket: BUCKET, Key: txtKey })
+      );
+
+      const text = await streamToString(txtObj.Body);
+      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+
+      articles.push({
+        id: txtKey,
+        section,
+        title: lines[0] || "",
+        subtitle: lines[1] || "",
+        date: `${year}-${month}-${day}`,
+        txtUrl: `${S3_BASE_URL}${txtKey}`,
+        imageUrl: imageKey ? `${S3_BASE_URL}${imageKey}` : undefined,
+        url: `/articulo/${encodeURIComponent(txtKey)}`,
+      });
+    }
+
+    // --------------------------------------------------
+    // RESPONSE
+    // --------------------------------------------------
+    return NextResponse.json({
+      articles: latestOnly ? articles.slice(0, sections.length) : articles,
+      date: `${year}-${month}-${day}`,
+      year,
+      month,
+      day,
+      lang,
+    });
+  } catch (err) {
+    console.error("❌ /api/news error:", err);
+    return NextResponse.json({ articles: [] }, { status: 500 });
+  }
 }

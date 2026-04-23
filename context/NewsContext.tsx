@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import {
   createContext,
@@ -13,6 +14,8 @@ import { LanguageContext } from "../app/RootProviders";
 /* ============================
    TYPES
 ============================ */
+
+
 
 export interface Contenido {
   title: string;
@@ -73,54 +76,32 @@ export function NewsProvider({ children }: Props) {
     section: string = "all",
     lang?: string
   ) {
-    // 🔹 1) Normalización de fecha
-    //    - Si 'day' viene como "YYYY-MM-DD" (caso Home con dateFilter), lo partimos.
-    //    - Si no, aplicamos los defaults de 'hoy' (como antes).
-    let y = year;
-    let m = month;
-    let d = day;
-
-    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
-      const parts = d.split("-");
-      y = parts[0];
-      m = parts[1];
-      d = parts[2];
-    }
-
     const today = new Date();
-    y = y || today.getFullYear().toString();
-    m = m || String(today.getMonth() + 1).padStart(2, "0");
-    d = d || String(today.getDate()).padStart(2, "0");
-
+    year = year || today.getFullYear().toString();
+    month = month || String(today.getMonth() + 1).padStart(2, "0");
+    day = day || String(today.getDate()).padStart(2, "0");
     lang = (lang || language).toLowerCase();
 
-    // 🔹 2) Evitar cargas duplicadas con la clave NORMALIZADA
-    const loadKey = `${y}-${m}-${d}-${lang}-${section}`;
+    const loadKey = `${year}-${month}-${day}-${lang}-${section}`;
     if (lastLoadKeyRef.current === loadKey) return;
     lastLoadKeyRef.current = loadKey;
 
     setLoading(true);
 
     try {
-      const query = `/api/news?year=${y}&month=${m}&day=${d}&lang=${lang}${
+      const query = `/api/news?year=${year}&month=${month}&day=${day}&lang=${lang}${
         section !== "all" ? `&section=${section}` : ""
       }`;
 
-      // Opcional: log para debug
-      // console.log("[NewsProvider] GET", query);
-
       const res = await fetch(query);
-      if (!res.ok) {
-        // console.warn("❗ Respuesta no OK:", res.status, res.statusText);
-        return;
-      }
+      if (!res.ok) return;
 
       const data = await res.json();
 
       const availableDays = data.date ? [data.date.split("-")[2]] : [];
       setDaysAvailable(availableDays);
 
-      const fetchedArticles: Contenido[] = (data.articles || []).map((art: any) => ({
+      const fetchedArticles: Contenido[] = data.articles.map((art: any) => ({
         title: art.title,
         subtitle: art.subtitle,
         date: art.date,
@@ -130,32 +111,21 @@ export function NewsProvider({ children }: Props) {
         imageUrl: art.imageUrl,
       }));
 
+      // 👉 SOLO Home puede tocar el estado global
       if (section === "all") {
-        // Construimos los "principales" a partir del set obtenido
         const mainBySection: Record<string, Contenido> = {};
+
         for (const art of fetchedArticles) {
           if (!mainBySection[art.section]) {
             mainBySection[art.section] = art;
           }
         }
 
-        if (fetchedArticles.length > 0) {
-          // ✅ Si HAY artículos del día seleccionado, actualizamos el estado global
-          setArticles(fetchedArticles);
-          setMainArticlesBySection(mainBySection);
-        } else {
-          // ✅ Si NO hay artículos (o el backend devolvió vacío), mantenemos el estado previo
-          //    para que la homepage no se quede en blanco (se verá "como antes").
-          // console.info("ℹ️ No hay artículos para esa fecha. Conservando estado actual.");
-        }
+        setArticles(fetchedArticles);
+        setMainArticlesBySection(mainBySection);
       } else {
-        // Páginas de sección: aquí puedes decidir si quieres limpiar o no en vacío.
-        // Para mantener consistencia, si vienen vacíos NO tocamos 'articles'.
-        if (fetchedArticles.length > 0) {
-          setArticles(fetchedArticles);
-        } else {
-          // console.info("ℹ️ Sección sin artículos nuevos. Conservando 'articles'.");
-        }
+        // 👉 Las secciones solo usan articles
+        setArticles(fetchedArticles);
       }
     } catch (err) {
       console.error("❌ NewsProvider loadArticles error:", err);
@@ -164,7 +134,7 @@ export function NewsProvider({ children }: Props) {
     }
   }
 
-  // 🔥 Carga inicial SIEMPRE modo HOME (hoy)
+  // 🔥 Carga inicial SIEMPRE modo HOME
   useEffect(() => {
     loadArticles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
