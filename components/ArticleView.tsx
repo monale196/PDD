@@ -6,14 +6,11 @@ import { motion } from "framer-motion";
 import RecommendationsGrid from "./RecommendationsGrid";
 import { LanguageContext } from "@/app/RootProviders";
 
-/* ───────── ICONOS FLASHCARDS ───────── */
+/* ───────── ICONOS BASE ───────── */
 const iconMap: Record<string, string> = {
-  Economía: "/icons/Economy.png",
-  Economy: "/icons/Economy.png",
-  Sociedad: "/icons/Society.png",
-  Society: "/icons/Society.png",
-  Futuro: "/icons/Future.png",
-  Future: "/icons/Future.png",
+  economy: "/icons/Economy.png",
+  society: "/icons/Society.png",
+  future: "/icons/Future.png",
 };
 
 /* ───────── LABELS ───────── */
@@ -67,16 +64,16 @@ export default function ArticleView({ article, allArticles }: any) {
   const lang = language.toLowerCase() as "es" | "en";
   const t = labels[lang];
 
-  /* ───────── CLAVE ÚNICA DEL DEBATE ───────── */
+  /* ───────── ID ÚNICO DEL ARTÍCULO (DEBATE) ───────── */
   const articleId = article.url || article.txtUrl;
 
-  /* ───────── CONTENIDO ───────── */
+  /* ───────── STATE CONTENIDO ───────── */
   const [bullets, setBullets] = useState<string[]>([]);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
   const [answers, setAnswers] = useState<Record<number, number>>({});
 
-  /* ───────── DEBATE ───────── */
+  /* ───────── STATE DEBATE ───────── */
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [name, setName] = useState("");
@@ -105,6 +102,45 @@ export default function ArticleView({ article, allArticles }: any) {
     ? txtUrl.replace("article.txt", "image.jpg")
     : "/default-image.jpg";
 
+  /* ───────── ICONO FLASHCARD (COMO ANTES) ───────── */
+  const getFlashcardIcon = (title: string) => {
+    const t = title.toLowerCase();
+
+    if (
+      t.includes("econom") ||
+      t.includes("coste") ||
+      t.includes("precio") ||
+      t.includes("mercado") ||
+      t.includes("industry")
+    ) {
+      return iconMap.economy;
+    }
+
+    if (
+      t.includes("sociedad") ||
+      t.includes("social") ||
+      t.includes("civil") ||
+      t.includes("derechos") ||
+      t.includes("population")
+    ) {
+      return iconMap.society;
+    }
+
+    if (
+      t.includes("futuro") ||
+      t.includes("future") ||
+      t.includes("dron") ||
+      t.includes("autónom") ||
+      t.includes("autonom") ||
+      t.includes("ia") ||
+      t.includes("technology")
+    ) {
+      return iconMap.future;
+    }
+
+    return iconMap.future;
+  };
+
   /* ───────── PARSE TXT (IGUAL QUE ANTES) ───────── */
   useEffect(() => {
     if (!txtUrl) return;
@@ -113,6 +149,7 @@ export default function ArticleView({ article, allArticles }: any) {
       .then(r => r.text())
       .then(txt => {
         const lines = txt.split("\n");
+
         const b: string[] = [];
         const f: Flashcard[] = [];
         const p: Poll[] = [];
@@ -138,10 +175,13 @@ export default function ArticleView({ article, allArticles }: any) {
           }
 
           if (section === "---FLASHCARDS---") {
-            const m = line.match(/^(.+?)\s*[:\-]\s*(.+)$/);
-            if (m) {
+            const match = line.match(/^(.+?)\s*[:\-]\s*(.+)$/);
+            if (match) {
               if (currentFlash) f.push(currentFlash);
-              currentFlash = { title: m[1].trim(), summary: m[2].trim() };
+              currentFlash = {
+                title: match[1].trim(),
+                summary: match[2].trim(),
+              };
               return;
             }
             if (currentFlash) currentFlash.summary += " " + line;
@@ -194,12 +234,7 @@ export default function ArticleView({ article, allArticles }: any) {
     const res = await fetch("/api/debate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        articleId,
-        text: commentText,
-        anonymous,
-        name,
-      }),
+      body: JSON.stringify({ articleId, text: commentText, anonymous, name }),
     });
 
     const newComment = await res.json();
@@ -239,6 +274,7 @@ export default function ArticleView({ article, allArticles }: any) {
             {bullets.map((b, i) => <li key={i}>{b}</li>)}
           </ul>
         </div>
+
         <div className="rounded-3xl shadow-xl overflow-hidden">
           <img src={imageUrl} className="w-full h-full object-cover" />
         </div>
@@ -250,8 +286,15 @@ export default function ArticleView({ article, allArticles }: any) {
           <h2 className="text-4xl font-extrabold mb-14">{t.why}</h2>
           <div className="grid md:grid-cols-3 gap-12">
             {flashcards.map((c, i) => (
-              <motion.div key={i} whileHover={{ scale: 1.07 }} className="bg-white rounded-3xl p-12 text-center shadow-xl">
-                <img src={iconMap[c.title] || "/icons/Future.png"} className="w-24 h-24 mx-auto mb-8" />
+              <motion.div
+                key={i}
+                whileHover={{ scale: 1.07 }}
+                className="bg-white rounded-3xl p-12 text-center shadow-xl"
+              >
+                <img
+                  src={getFlashcardIcon(c.title)}
+                  className="w-24 h-24 mx-auto mb-8"
+                />
                 <h3 className="font-bold text-2xl mb-5">{c.title}</h3>
                 <p className="text-gray-600 text-lg">{c.summary}</p>
               </motion.div>
@@ -266,21 +309,31 @@ export default function ArticleView({ article, allArticles }: any) {
           <h2 className="text-4xl font-extrabold mb-14">{t.opinion}</h2>
           <div className="grid md:grid-cols-2 gap-12">
             {polls.map((poll, pi) => {
-              const max = Math.max(...poll.votes, 0);
+              const maxVotes = Math.max(...poll.votes, 0);
               return (
                 <div key={pi} className="bg-white p-12 rounded-3xl shadow-xl">
-                  <p className="text-2xl font-semibold mb-10 text-center">{poll.question}</p>
+                  <p className="text-2xl font-semibold mb-10 text-center">
+                    {poll.question}
+                  </p>
+
                   <div className="flex gap-6 justify-center">
                     {poll.options.map((o, oi) => (
                       <div key={oi} className="text-center">
-                        <button
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}
                           disabled={answers[pi] !== undefined}
                           onClick={() => vote(pi, oi)}
-                          className="px-10 py-5 rounded-full bg-blue-100 text-blue-700 font-bold"
+                          className={`px-10 py-5 rounded-full font-bold text-xl ${
+                            answers[pi] === oi
+                              ? "bg-gray-500 text-white"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
                         >
                           {o}
-                        </button>
-                        {max > 0 && (
+                        </motion.button>
+
+                        {maxVotes > 0 && (
                           <p className="mt-2 text-sm text-gray-600">
                             {poll.votes[oi]} {t.votes}
                           </p>
@@ -316,7 +369,11 @@ export default function ArticleView({ article, allArticles }: any) {
         />
 
         <label className="flex items-center gap-3 mb-8 text-lg">
-          <input type="checkbox" checked={anonymous} onChange={() => setAnonymous(!anonymous)} />
+          <input
+            type="checkbox"
+            checked={anonymous}
+            onChange={() => setAnonymous(!anonymous)}
+          />
           {t.anonymous}
         </label>
 
@@ -333,7 +390,10 @@ export default function ArticleView({ article, allArticles }: any) {
             <div key={c.id} className="bg-gray-100 p-6 rounded-xl">
               <p className="font-semibold">{c.name}</p>
               <p className="mt-2">{c.text}</p>
-              <button onClick={() => likeComment(c.id)} className="mt-3 text-sm text-blue-600">
+              <button
+                onClick={() => likeComment(c.id)}
+                className="mt-3 text-sm text-blue-600"
+              >
                 👍 {c.likes} {t.like}
               </button>
             </div>
@@ -343,7 +403,10 @@ export default function ArticleView({ article, allArticles }: any) {
 
       {/* RECOMMENDATIONS */}
       {allArticles?.length > 0 && (
-        <RecommendationsGrid articles={allArticles} currentArticle={article} />
+        <RecommendationsGrid
+          articles={allArticles}
+          currentArticle={article}
+        />
       )}
     </article>
   );
