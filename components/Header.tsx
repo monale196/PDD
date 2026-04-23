@@ -4,10 +4,12 @@
 import React, { useState, useContext, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { SearchContext, LanguageContext } from "../app/RootProviders";
+import { LanguageContext } from "../app/RootProviders";
 import { NewsContext } from "../context/NewsContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { SearchContext } from "@/context/SearchContext";
+
 import {
   Bars3Icon,
   HomeIcon,
