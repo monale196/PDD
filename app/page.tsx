@@ -22,9 +22,14 @@ export default function Home() {
 
   /* ✅ CLAVE: recargar noticias cuando cambia la fecha */
   useEffect(() => {
-    if (dateFilter) {
-      loadArticles(dateFilter);
-    }
+    if (!dateFilter) return;
+
+    const parts = dateFilter.split("-");
+    if (parts.length !== 3) return;
+
+    const [year, month, day] = parts;
+
+    loadArticles(year, month, day, "all");
   }, [dateFilter, loadArticles]);
 
   /* ───────── MAPA DE SECCIONES ───────── */
