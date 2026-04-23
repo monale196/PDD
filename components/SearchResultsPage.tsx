@@ -1,7 +1,7 @@
 "use client";
 
-import { useContext, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useContext, useMemo, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { NewsContext, Contenido } from "@/context/NewsContext";
@@ -12,20 +12,31 @@ type SortOption = "title-asc" | "title-desc";
 
 export default function SearchResultsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
+  /* ========= CONTEXT ========= */
   const { articles } = useContext(NewsContext);
-  const { keyword, setKeyword, setDateFilter } = useContext(SearchContext);
+  const { setKeyword, setDateFilter } = useContext(SearchContext);
   const { language } = useContext(LanguageContext);
 
-  const [localKeyword, setLocalKeyword] = useState(keyword);
+  /* ========= KEYWORD DESDE URL (FUENTE DE LA VERDAD) ========= */
+  const keywordFromUrl = searchParams.get("keyword") || "";
+
+  /* ========= STATE ========= */
+  const [localKeyword, setLocalKeyword] = useState(keywordFromUrl);
   const [sortBy, setSortBy] = useState<SortOption>("title-asc");
 
-  /* =========================
-     TRADUCCIONES
-  ========================= */
+  /* ========= SYNC INPUT CON URL ========= */
+  useEffect(() => {
+    setLocalKeyword(keywordFromUrl);
+    setKeyword(keywordFromUrl);
+  }, [keywordFromUrl, setKeyword]);
+
+  /* ========= TRADUCCIONES ========= */
   const t = {
     es: {
       resultsFor: "Resultados para",
+      resultsAll: "todos los artículos",
       goBack: "← Volver",
       sortBy: "Ordenar por:",
       noResults: "No se encontraron artículos relacionados.",
@@ -37,6 +48,7 @@ export default function SearchResultsPage() {
     },
     en: {
       resultsFor: "Results for",
+      resultsAll: "all articles",
       goBack: "← Go back",
       sortBy: "Sort by:",
       noResults: "No related articles found.",
@@ -50,16 +62,10 @@ export default function SearchResultsPage() {
 
   const tr = language === "EN" ? t.en : t.es;
 
-  /* =========================
-     PROTECCIÓN (AMPLIFY / SSR)
-  ========================= */
-  if (!articles) {
-    return null;
-  }
+  /* ========= PROTECCIÓN ========= */
+  if (!articles) return null;
 
-  /* =========================
-     UTILIDADES
-  ========================= */
+  /* ========= UTILIDADES ========= */
   const cleanText = (text = "") =>
     text
       .replace(/\*\*/g, "")
@@ -75,14 +81,12 @@ export default function SearchResultsPage() {
     );
   };
 
-  /* =========================
-     FILTRADO
-  ========================= */
+  /* ========= FILTRADO ========= */
   const results = useMemo(() => {
     let filtered = [...articles];
 
-    if (keyword.trim()) {
-      const q = keyword.toLowerCase();
+    const q = keywordFromUrl.trim().toLowerCase();
+    if (q) {
       filtered = filtered.filter(a =>
         `${a.title} ${a.subtitle ?? ""} ${a.body ?? ""}`
           .toLowerCase()
@@ -97,15 +101,13 @@ export default function SearchResultsPage() {
     );
 
     return filtered;
-  }, [articles, keyword, sortBy]);
+  }, [articles, keywordFromUrl, sortBy]);
 
-  /* =========================
-     ACCIONES
-  ========================= */
+  /* ========= ACCIONES ========= */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setKeyword(localKeyword);
-    router.push(`/buscar?keyword=${encodeURIComponent(localKeyword)}`);
+    const q = localKeyword.trim();
+    router.push(`/buscar?keyword=${encodeURIComponent(q)}`);
   };
 
   const handleReadMore = (article: Contenido) => {
@@ -113,19 +115,18 @@ export default function SearchResultsPage() {
     router.push(`/secciones/${article.section}`);
   };
 
-  const handleGoBack = () => {
-    router.back();
-  };
+  const handleGoBack = () => router.back();
 
-  /* =========================
-     RENDER
-  ========================= */
+  /* ========= RENDER ========= */
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h1 className="text-2xl font-bold">
-          {tr.resultsFor} “{keyword}”
+          {tr.resultsFor}{" "}
+          {keywordFromUrl
+            ? `“${keywordFromUrl}”`
+            : tr.resultsAll}
         </h1>
 
         <button
@@ -137,7 +138,10 @@ export default function SearchResultsPage() {
       </div>
 
       {/* BUSCADOR */}
-      <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col md:flex-row gap-4"
+      >
         <input
           value={localKeyword}
           onChange={(e) => setLocalKeyword(e.target.value)}

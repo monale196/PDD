@@ -9,13 +9,11 @@ export default function BuscarClient() {
   const searchParams = useSearchParams();
   const keywordFromUrl = searchParams.get("keyword") || "";
 
-  const { keyword, setKeyword } = useSearch();
+  const { setKeyword } = useSearch();
 
   useEffect(() => {
-    if (keywordFromUrl !== keyword) {
-      setKeyword(keywordFromUrl);
-    }
-  }, [keywordFromUrl, keyword, setKeyword]);
+    setKeyword(keywordFromUrl);
+  }, [keywordFromUrl, setKeyword]);
 
   return <SearchResultsPage />;
 }
