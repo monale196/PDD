@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 
-const comments: any[] = []; // ⚠️ en memoria (válido para empezar)
+const debates: Record<string, any[]> = {};
 
-export async function GET() {
-  return NextResponse.json(comments);
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const articleId = searchParams.get("articleId");
+
+  return NextResponse.json(debates[articleId || ""] || []);
 }
 
 export async function POST(req: Request) {
-  const { text, name, anonymous } = await req.json();
+  const { articleId, text, name, anonymous } = await req.json();
+
+  if (!debates[articleId]) {
+    debates[articleId] = [];
+  }
 
   const comment = {
     id: Date.now(),
@@ -17,14 +24,17 @@ export async function POST(req: Request) {
     createdAt: new Date().toISOString(),
   };
 
-  comments.unshift(comment);
+  debates[articleId].unshift(comment);
 
   return NextResponse.json(comment);
 }
 
 export async function PATCH(req: Request) {
-  const { id } = await req.json();
-  const c = comments.find(c => c.id === id);
+  const { articleId, commentId } = await req.json();
+
+  const comments = debates[articleId] || [];
+  const c = comments.find(c => c.id === commentId);
   if (c) c.likes += 1;
+
   return NextResponse.json(c);
 }
