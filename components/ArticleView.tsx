@@ -44,14 +44,22 @@ const labels = {
   },
 };
 
-type Flashcard = { title: string; summary: string };
-type Poll = { question: string; options: string[]; votes: number[] };
+type Flashcard = {
+  title: string;
+  summary: string;
+};
+
+type Poll = {
+  question: string;
+  options: string[];
+  votes: number[];
+};
+
 type Comment = {
   id: number;
   text: string;
   name: string;
   likes: number;
-  createdAt: string;
 };
 
 export default function ArticleView({ article, allArticles }: any) {
@@ -59,16 +67,16 @@ export default function ArticleView({ article, allArticles }: any) {
   const lang = language.toLowerCase() as "es" | "en";
   const t = labels[lang];
 
-  /* ───────── ARTICLE ID (CLAVE DEL DEBATE) ───────── */
+  /* ───────── CLAVE ÚNICA DEL DEBATE ───────── */
   const articleId = article.url || article.txtUrl;
 
-  /* ───────── STATE CONTENIDO ───────── */
+  /* ───────── CONTENIDO ───────── */
   const [bullets, setBullets] = useState<string[]>([]);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
   const [answers, setAnswers] = useState<Record<number, number>>({});
 
-  /* ───────── STATE DEBATE ───────── */
+  /* ───────── DEBATE ───────── */
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [name, setName] = useState("");
@@ -97,7 +105,7 @@ export default function ArticleView({ article, allArticles }: any) {
     ? txtUrl.replace("article.txt", "image.jpg")
     : "/default-image.jpg";
 
-  /* ───────── PARSE TXT ───────── */
+  /* ───────── PARSE TXT (IGUAL QUE ANTES) ───────── */
   useEffect(() => {
     if (!txtUrl) return;
 
@@ -105,7 +113,6 @@ export default function ArticleView({ article, allArticles }: any) {
       .then(r => r.text())
       .then(txt => {
         const lines = txt.split("\n");
-
         const b: string[] = [];
         const f: Flashcard[] = [];
         const p: Poll[] = [];
@@ -163,14 +170,14 @@ export default function ArticleView({ article, allArticles }: any) {
       });
   }, [txtUrl, lang]);
 
-  /* ───────── LOAD DEBATE ───────── */
+  /* ───────── CARGAR DEBATE ───────── */
   useEffect(() => {
     fetch(`/api/debate?articleId=${encodeURIComponent(articleId)}`)
       .then(r => r.json())
       .then(setComments);
   }, [articleId]);
 
-  /* ───────── ACTIONS ───────── */
+  /* ───────── ACCIONES ───────── */
   const vote = (pi: number, oi: number) => {
     if (answers[pi] !== undefined) return;
     setAnswers({ ...answers, [pi]: oi });
@@ -232,7 +239,6 @@ export default function ArticleView({ article, allArticles }: any) {
             {bullets.map((b, i) => <li key={i}>{b}</li>)}
           </ul>
         </div>
-
         <div className="rounded-3xl shadow-xl overflow-hidden">
           <img src={imageUrl} className="w-full h-full object-cover" />
         </div>
@@ -244,15 +250,8 @@ export default function ArticleView({ article, allArticles }: any) {
           <h2 className="text-4xl font-extrabold mb-14">{t.why}</h2>
           <div className="grid md:grid-cols-3 gap-12">
             {flashcards.map((c, i) => (
-              <motion.div
-                key={i}
-                whileHover={{ scale: 1.07 }}
-                className="bg-white rounded-3xl p-12 text-center shadow-xl"
-              >
-                <img
-                  src={iconMap[c.title] || "/icons/Future.png"}
-                  className="w-24 h-24 mx-auto mb-8"
-                />
+              <motion.div key={i} whileHover={{ scale: 1.07 }} className="bg-white rounded-3xl p-12 text-center shadow-xl">
+                <img src={iconMap[c.title] || "/icons/Future.png"} className="w-24 h-24 mx-auto mb-8" />
                 <h3 className="font-bold text-2xl mb-5">{c.title}</h3>
                 <p className="text-gray-600 text-lg">{c.summary}</p>
               </motion.div>
@@ -270,10 +269,7 @@ export default function ArticleView({ article, allArticles }: any) {
               const max = Math.max(...poll.votes, 0);
               return (
                 <div key={pi} className="bg-white p-12 rounded-3xl shadow-xl">
-                  <p className="text-2xl font-semibold mb-10 text-center">
-                    {poll.question}
-                  </p>
-
+                  <p className="text-2xl font-semibold mb-10 text-center">{poll.question}</p>
                   <div className="flex gap-6 justify-center">
                     {poll.options.map((o, oi) => (
                       <div key={oi} className="text-center">
@@ -284,7 +280,6 @@ export default function ArticleView({ article, allArticles }: any) {
                         >
                           {o}
                         </button>
-
                         {max > 0 && (
                           <p className="mt-2 text-sm text-gray-600">
                             {poll.votes[oi]} {t.votes}
@@ -321,11 +316,7 @@ export default function ArticleView({ article, allArticles }: any) {
         />
 
         <label className="flex items-center gap-3 mb-8 text-lg">
-          <input
-            type="checkbox"
-            checked={anonymous}
-            onChange={() => setAnonymous(!anonymous)}
-          />
+          <input type="checkbox" checked={anonymous} onChange={() => setAnonymous(!anonymous)} />
           {t.anonymous}
         </label>
 
@@ -342,10 +333,7 @@ export default function ArticleView({ article, allArticles }: any) {
             <div key={c.id} className="bg-gray-100 p-6 rounded-xl">
               <p className="font-semibold">{c.name}</p>
               <p className="mt-2">{c.text}</p>
-              <button
-                onClick={() => likeComment(c.id)}
-                className="mt-3 text-sm text-blue-600"
-              >
+              <button onClick={() => likeComment(c.id)} className="mt-3 text-sm text-blue-600">
                 👍 {c.likes} {t.like}
               </button>
             </div>
@@ -355,10 +343,7 @@ export default function ArticleView({ article, allArticles }: any) {
 
       {/* RECOMMENDATIONS */}
       {allArticles?.length > 0 && (
-        <RecommendationsGrid
-          articles={allArticles}
-          currentArticle={article}
-        />
+        <RecommendationsGrid articles={allArticles} currentArticle={article} />
       )}
     </article>
   );
